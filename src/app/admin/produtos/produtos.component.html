@@ -1,63 +1,90 @@
+<!-- Page Header -->
 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-  <h2 class="text-2xl font-bold">Catálogo de Produtos</h2>
-  <button (click)="openModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2">
+  <div>
+    <h1 class="text-xl font-bold text-[var(--gray-900)]">Catálogo de Produtos</h1>
+    <p class="text-sm text-[var(--gray-500)] mt-1">Gerencie seus produtos e estoque</p>
+  </div>
+  <button (click)="openModal()" class="btn-primary">
     <i class="fas fa-plus"></i> Novo Produto
   </button>
 </div>
 
-<div class="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200">
-  <table class="w-full text-left">
-    <thead class="bg-gray-50 border-b border-gray-200">
-      <tr>
-        <th class="p-4 font-semibold text-gray-600">SKU</th>
-        <th class="p-4 font-semibold text-gray-600">Nome</th>
-        <th class="p-4 font-semibold text-gray-600">Categoria</th>
-        <th class="p-4 font-semibold text-gray-600">Preço</th>
-        <th class="p-4 font-semibold text-gray-600">Estoque</th>
-        <th class="p-4 font-semibold text-gray-600 text-right">Ações</th>
-      </tr>
-    </thead>
-    <tbody class="divide-y divide-gray-100">
-      @for (produto of produtos; track produto.id) {
-        <tr>
-          <td class="p-4">{{ produto.id }}</td>
-          <td class="p-4">{{ produto.nome }}</td>
-          <td class="p-4">
-            <span class="px-2 py-1 bg-indigo-100 text-indigo-800 rounded-full text-xs font-medium">
-              {{ getCategoriaNome(produto.categoriaId) }}
-            </span>
-          </td>
-          <td class="p-4 font-semibold text-green-600">R$ {{ produto.preco | number:'1.2-2' }}</td>
-          <td class="p-4">{{ produto.estoque || 0 }}</td>
-          <td class="p-4 text-right">
-            <button (click)="openModal(produto)" class="text-blue-600 hover:text-blue-800 mr-2" title="Editar">
-              <i class="fas fa-edit"></i>
-            </button>
-            <button (click)="openDeleteModal(produto)" class="text-red-600 hover:text-red-800" title="Excluir">
-              <i class="fas fa-trash"></i>
-            </button>
-          </td>
+<!-- Table Card -->
+<div class="card overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="w-full">
+      <thead>
+        <tr class="bg-[var(--gray-50)] border-b border-[var(--gray-200)]">
+          <th class="px-6 py-4 text-left text-xs font-semibold text-[var(--gray-500)] uppercase tracking-wider">Produto</th>
+          <th class="px-6 py-4 text-left text-xs font-semibold text-[var(--gray-500)] uppercase tracking-wider">Categoria</th>
+          <th class="px-6 py-4 text-left text-xs font-semibold text-[var(--gray-500)] uppercase tracking-wider">Preço</th>
+          <th class="px-6 py-4 text-left text-xs font-semibold text-[var(--gray-500)] uppercase tracking-wider">Estoque</th>
+          <th class="px-6 py-4 text-right text-xs font-semibold text-[var(--gray-500)] uppercase tracking-wider">Ações</th>
         </tr>
-      } @empty {
-        <tr>
-          <td colspan="6" class="p-8 text-center text-gray-500">Nenhum produto cadastrado</td>
-        </tr>
-      }
-    </tbody>
-  </table>
+      </thead>
+      <tbody class="divide-y divide-[var(--gray-100)]">
+        @for (produto of produtos; track produto.id) {
+          <tr class="hover:bg-[var(--gray-50)] transition-colors">
+            <td class="px-6 py-4">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-[var(--success-50)] flex items-center justify-center">
+                  <i class="fas fa-box text-[var(--success-500)]"></i>
+                </div>
+                <div>
+                  <p class="font-medium text-[var(--gray-900)]">{{ produto.nome }}</p>
+                  <p class="text-xs text-[var(--gray-500)]">SKU: {{ produto.id }}</p>
+                </div>
+              </div>
+            </td>
+            <td class="px-6 py-4">
+              <span class="badge badge-primary">{{ getCategoriaNome(produto.categoriaId) }}</span>
+            </td>
+            <td class="px-6 py-4">
+              <span class="font-semibold text-[var(--success-700)]">R$ {{ produto.preco | number:'1.2-2' }}</span>
+            </td>
+            <td class="px-6 py-4">
+              <span class="text-[var(--gray-600)]">{{ produto.estoque || 0 }} un.</span>
+            </td>
+            <td class="px-6 py-4 text-right">
+              <div class="flex items-center justify-end gap-2">
+                <button (click)="openModal(produto)" class="p-2 text-[var(--gray-400)] hover:text-[var(--primary-600)] hover:bg-[var(--primary-50)] rounded-lg transition-all" title="Editar">
+                  <i class="fas fa-edit"></i>
+                </button>
+                <button (click)="openDeleteModal(produto)" class="p-2 text-[var(--gray-400)] hover:text-[var(--error-500)] hover:bg-[var(--error-50)] rounded-lg transition-all" title="Excluir">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="5" class="px-6 py-12 text-center">
+              <div class="flex flex-col items-center">
+                <div class="w-16 h-16 rounded-full bg-[var(--gray-100)] flex items-center justify-center mb-4">
+                  <i class="fas fa-box text-2xl text-[var(--gray-400)]"></i>
+                </div>
+                <p class="text-[var(--gray-500)] font-medium">Nenhum produto cadastrado</p>
+                <p class="text-sm text-[var(--gray-400)] mt-1">Clique em "Novo Produto" para adicionar</p>
+              </div>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
 </div>
 
 <!-- Modal de Cadastro/Edição -->
-<app-modal [isOpen]="isModalOpen" [title]="editingId ? 'Editar Produto' : 'Cadastrar Produto'" (close)="closeModal()">
-  <form (ngSubmit)="saveProduto()" class="space-y-4">
+<app-modal [isOpen]="isModalOpen" [title]="editingId ? 'Editar Produto' : 'Novo Produto'" (close)="closeModal()">
+  <form (ngSubmit)="saveProduto()" class="space-y-5">
     <div>
-      <label class="block text-sm font-medium text-gray-700 mb-1">Nome</label>
+      <label class="block text-sm font-medium text-[var(--gray-700)] mb-1.5">Nome</label>
       <input [(ngModel)]="formData.nome" name="nome" placeholder="Nome do produto" 
-             class="w-full border p-2 rounded-lg outline-blue-500" required>
+             class="w-full border border-[var(--gray-300)] px-4 py-2.5 rounded-lg text-[var(--gray-900)] placeholder-[var(--gray-400)]" required>
     </div>
     <div>
-      <label class="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
-      <select [(ngModel)]="formData.categoriaId" name="categoriaId" class="w-full border p-2 rounded-lg outline-blue-500" required>
+      <label class="block text-sm font-medium text-[var(--gray-700)] mb-1.5">Categoria</label>
+      <select [(ngModel)]="formData.categoriaId" name="categoriaId" class="w-full border border-[var(--gray-300)] px-4 py-2.5 rounded-lg text-[var(--gray-900)]" required>
         <option value="">Selecione uma categoria...</option>
         @for (categoria of categorias; track categoria.id) {
           <option [value]="categoria.id">{{ categoria.nome }}</option>
@@ -65,43 +92,43 @@
       </select>
     </div>
     <div>
-      <label class="block text-sm font-medium text-gray-700 mb-1">Preço (R$)</label>
+      <label class="block text-sm font-medium text-[var(--gray-700)] mb-1.5">Preço (R$)</label>
       <input [(ngModel)]="formData.preco" name="preco" type="number" step="0.01" placeholder="0.00" 
-             class="w-full border p-2 rounded-lg outline-blue-500" required>
+             class="w-full border border-[var(--gray-300)] px-4 py-2.5 rounded-lg text-[var(--gray-900)] placeholder-[var(--gray-400)]" required>
     </div>
-    <div class="flex items-center gap-2">
+    <div class="flex items-center gap-3">
       <input type="checkbox" [(ngModel)]="formData.ativo" name="ativo" id="produto-ativo" 
-             class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
-      <label for="produto-ativo" class="text-sm font-medium text-gray-700">Produto ativo</label>
+             class="w-4 h-4 text-[var(--primary-600)] border-[var(--gray-300)] rounded focus:ring-[var(--primary-500)]">
+      <label for="produto-ativo" class="text-sm font-medium text-[var(--gray-700)]">Produto ativo</label>
     </div>
-    <div class="flex items-center gap-2">
-      <label class="text-sm font-medium text-gray-700">Variação</label>
+    <div class="flex items-center gap-3">
+      <label class="text-sm font-medium text-[var(--gray-700)]">Variação</label>
       <button type="button" (click)="toggleVariacao()" 
-              class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-              [class.bg-blue-600]="variacaoAtiva"
-              [class.bg-gray-300]="!variacaoAtiva">
-        <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"
+              class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)] focus:ring-offset-2"
+              [class.bg-[var(--primary-600)]]="variacaoAtiva"
+              [class.bg-[var(--gray-300)]]="!variacaoAtiva">
+        <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm"
               [class.translate-x-6]="variacaoAtiva"
               [class.translate-x-1]="!variacaoAtiva"></span>
       </button>
-      <span class="text-xs" [class.text-blue-600]="variacaoAtiva" [class.text-gray-500]="!variacaoAtiva">
+      <span class="text-xs" [class.text-[var(--primary-600)]]="variacaoAtiva" [class.text-[var(--gray-500)]]="!variacaoAtiva">
         {{ variacaoAtiva ? 'Ligado' : 'Desligado' }}
       </span>
     </div>
     
     @if (!variacaoAtiva) {
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">Estoque</label>
+        <label class="block text-sm font-medium text-[var(--gray-700)] mb-1.5">Estoque</label>
         <input [(ngModel)]="formData.estoque" name="estoque" type="number" placeholder="0" 
-               class="w-full border p-2 rounded-lg outline-blue-500">
+               class="w-full border border-[var(--gray-300)] px-4 py-2.5 rounded-lg text-[var(--gray-900)] placeholder-[var(--gray-400)]">
       </div>
     }
     
     @if (variacaoAtiva) {
-      <div class="space-y-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+      <div class="space-y-4 p-4 bg-[var(--gray-50)] rounded-lg border border-[var(--gray-200)]">
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de Variação</label>
-          <select [(ngModel)]="formData.tipoVariacao" name="tipoVariacao" class="w-full border p-2 rounded-lg outline-blue-500">
+          <label class="block text-sm font-medium text-[var(--gray-700)] mb-1.5">Tipo de Variação</label>
+          <select [(ngModel)]="formData.tipoVariacao" name="tipoVariacao" class="w-full border border-[var(--gray-300)] px-4 py-2.5 rounded-lg text-[var(--gray-900)]">
             <option value="">Selecione o tipo...</option>
             <option value="Cor">Cor</option>
             <option value="Tamanho">Tamanho</option>
@@ -116,21 +143,21 @@
           </select>
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Valor da Variação</label>
+          <label class="block text-sm font-medium text-[var(--gray-700)] mb-1.5">Valor da Variação</label>
           <input [(ngModel)]="formData.valorVariacao" name="valorVariacao" placeholder="Ex: Azul, P, 110V..." 
-                 class="w-full border p-2 rounded-lg outline-blue-500">
+                 class="w-full border border-[var(--gray-300)] px-4 py-2.5 rounded-lg text-[var(--gray-900)] placeholder-[var(--gray-400)]">
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Quantidade em Estoque</label>
+          <label class="block text-sm font-medium text-[var(--gray-700)] mb-1.5">Quantidade em Estoque</label>
           <input [(ngModel)]="formData.estoqueVariacao" name="estoqueVariacao" type="number" placeholder="0" 
-                 class="w-full border p-2 rounded-lg outline-blue-500">
+                 class="w-full border border-[var(--gray-300)] px-4 py-2.5 rounded-lg text-[var(--gray-900)] placeholder-[var(--gray-400)]">
         </div>
       </div>
     }
     
-    <div class="flex justify-end gap-3 pt-4">
-      <button type="button" (click)="closeModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Cancelar</button>
-      <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Salvar Alterações</button>
+    <div class="flex justify-end gap-3 pt-4 border-t border-[var(--gray-200)]">
+      <button type="button" (click)="closeModal()" class="btn-secondary">Cancelar</button>
+      <button type="submit" class="btn-primary">Salvar</button>
     </div>
   </form>
 </app-modal>

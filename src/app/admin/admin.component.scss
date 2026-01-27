@@ -2,3 +2,16 @@
   display: block;
   height: 100vh;
 }
+
+.nav-active {
+  background: var(--primary-50) !important;
+  color: var(--primary-700) !important;
+  
+  .w-9 {
+    background: var(--primary-100) !important;
+  }
+  
+  i {
+    color: var(--primary-600) !important;
+  }
+}

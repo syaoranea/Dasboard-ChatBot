@@ -22,7 +22,7 @@ export class AdminComponent {
     { id: 'usuarios', label: 'Usuários', icon: 'fa-users', route: '/admin/usuarios' },
     { id: 'produtos', label: 'Produtos', icon: 'fa-box', route: '/admin/produtos' },
     { id: 'clientes', label: 'Clientes', icon: 'fa-user-tie', route: '/admin/clientes' },
-    { id: 'orcamentos', label: 'Orçamentos', icon: 'fa-calculator', route: '/admin/orcamentos' },
+    { id: 'orcamentos', label: 'Orçamentos', icon: 'fa-file-invoice-dollar', route: '/admin/orcamentos' },
     { id: 'categorias', label: 'Categorias', icon: 'fa-tags', route: '/admin/categorias' }
   ];
 
@@ -33,6 +33,12 @@ export class AdminComponent {
 
   toggleMobileMenu(): void {
     this.mobileMenuOpen = !this.mobileMenuOpen;
+  }
+
+  getCurrentPageTitle(): string {
+    const currentUrl = this.router.url;
+    const item = this.navItems.find(nav => currentUrl.includes(nav.id));
+    return item ? item.label : 'Dashboard';
   }
 
   async logout(): Promise<void> {
