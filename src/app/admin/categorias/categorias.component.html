@@ -1,0 +1,66 @@
+<div class="flex justify-between items-center mb-6">
+  <h2 class="text-2xl font-bold">Categorias</h2>
+  <button (click)="openModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2">
+    <i class="fas fa-plus"></i> Nova Categoria
+  </button>
+</div>
+
+<div class="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200">
+  <table class="w-full text-left">
+    <thead class="bg-gray-50 border-b border-gray-200">
+      <tr>
+        <th class="p-4 font-semibold text-gray-600">ID</th>
+        <th class="p-4 font-semibold text-gray-600">Nome</th>
+        <th class="p-4 font-semibold text-gray-600">Descrição</th>
+        <th class="p-4 font-semibold text-gray-600 text-right">Ações</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100">
+      @for (categoria of categorias; track categoria.id) {
+        <tr>
+          <td class="p-4">{{ categoria.id }}</td>
+          <td class="p-4">{{ categoria.nome }}</td>
+          <td class="p-4">{{ categoria.descricao }}</td>
+          <td class="p-4 text-right">
+            <button (click)="openModal(categoria)" class="text-blue-600 hover:text-blue-800 mr-2" title="Editar">
+              <i class="fas fa-edit"></i>
+            </button>
+            <button (click)="openDeleteModal(categoria)" class="text-red-600 hover:text-red-800" title="Excluir">
+              <i class="fas fa-trash"></i>
+            </button>
+          </td>
+        </tr>
+      } @empty {
+        <tr>
+          <td colspan="4" class="p-8 text-center text-gray-500">Nenhuma categoria cadastrada</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+</div>
+
+<!-- Modal de Cadastro/Edição -->
+<app-modal [isOpen]="isModalOpen" [title]="editingId ? 'Editar Categoria' : 'Cadastrar Categoria'" (close)="closeModal()">
+  <form (ngSubmit)="saveCategoria()" class="space-y-4">
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">Nome</label>
+      <input [(ngModel)]="formData.nome" name="nome" placeholder="Nome da categoria" 
+             class="w-full border p-2 rounded-lg outline-blue-500" required>
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
+      <textarea [(ngModel)]="formData.descricao" name="descricao" placeholder="Descrição da categoria" 
+                class="w-full border p-2 rounded-lg outline-blue-500" rows="3"></textarea>
+    </div>
+    <div class="flex justify-end gap-3 pt-4">
+      <button type="button" (click)="closeModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Cancelar</button>
+      <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Salvar Alterações</button>
+    </div>
+  </form>
+</app-modal>
+
+<!-- Modal de Confirmação de Exclusão -->
+<app-confirm-modal [isOpen]="isDeleteModalOpen" [message]="'Tem certeza que deseja excluir &quot;' + deleteName + '&quot;? Esta ação não pode ser desfeita.'" (confirm)="confirmDelete()" (cancel)="closeDeleteModal()"></app-confirm-modal>
+
+<!-- Modal de Sucesso -->
+<app-success-modal [isOpen]="isSuccessModalOpen" [message]="successMessage" (close)="closeSuccessModal()"></app-success-modal>

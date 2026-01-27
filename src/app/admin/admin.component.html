@@ -1,0 +1,65 @@
+<div class="flex h-screen overflow-hidden">
+  <!-- Sidebar -->
+  <aside class="w-64 bg-slate-900 text-white flex-shrink-0 hidden md:flex flex-col">
+    <div class="p-6">
+      <h1 class="text-2xl font-bold flex items-center gap-2">
+        <i class="fas fa-file-invoice-dollar text-blue-400"></i> Admin
+      </h1>
+    </div>
+    <nav class="flex-1 px-4 space-y-2 py-4">
+      @for (item of navItems; track item.id) {
+        <a [routerLink]="item.route" 
+           routerLinkActive="bg-slate-800"
+           (click)="switchTab(item.id)"
+           class="nav-btn flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 transition-all cursor-pointer">
+          <i class="fas {{ item.icon }} w-5"></i> {{ item.label }}
+        </a>
+      }
+    </nav>
+    <div class="p-4 border-t border-slate-800">
+      <button (click)="logout()" class="flex items-center gap-3 p-3 w-full text-red-400 hover:bg-slate-800 rounded-lg transition-all">
+        <i class="fas fa-sign-out-alt"></i> Sair
+      </button>
+    </div>
+  </aside>
+
+  <!-- Mobile Menu -->
+  @if (mobileMenuOpen) {
+    <div class="fixed inset-0 bg-black/50 z-40 md:hidden" (click)="toggleMobileMenu()"></div>
+    <aside class="fixed left-0 top-0 h-full w-64 bg-slate-900 text-white z-50 md:hidden flex flex-col">
+      <div class="p-6">
+        <h1 class="text-2xl font-bold flex items-center gap-2">
+          <i class="fas fa-file-invoice-dollar text-blue-400"></i> Admin
+        </h1>
+      </div>
+      <nav class="flex-1 px-4 space-y-2 py-4">
+        @for (item of navItems; track item.id) {
+          <a [routerLink]="item.route" 
+             routerLinkActive="bg-slate-800"
+             (click)="switchTab(item.id)"
+             class="nav-btn flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 transition-all cursor-pointer">
+            <i class="fas {{ item.icon }} w-5"></i> {{ item.label }}
+          </a>
+        }
+      </nav>
+      <div class="p-4 border-t border-slate-800">
+        <button (click)="logout()" class="flex items-center gap-3 p-3 w-full text-red-400 hover:bg-slate-800 rounded-lg transition-all">
+          <i class="fas fa-sign-out-alt"></i> Sair
+        </button>
+      </div>
+    </aside>
+  }
+
+  <!-- Main Content -->
+  <main class="flex-1 overflow-y-auto p-4 md:p-8 bg-gray-50">
+    <!-- Mobile Header -->
+    <div class="md:hidden flex items-center justify-between mb-6">
+      <h1 class="text-xl font-bold">Admin Orçamentos</h1>
+      <button (click)="toggleMobileMenu()" class="text-2xl">
+        <i class="fas fa-bars"></i>
+      </button>
+    </div>
+
+    <router-outlet></router-outlet>
+  </main>
+</div>
