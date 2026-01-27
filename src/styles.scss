@@ -1,0 +1,15 @@
+@import "tailwindcss";
+
+@plugin "@tailwindcss/forms";
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+body {
+  min-height: 100vh;
+  background: #f1f5f9;
+}

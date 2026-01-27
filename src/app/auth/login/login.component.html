@@ -1,0 +1,77 @@
+<div class="page">
+  <div class="wrapper">
+    <div class="border-outer"></div>
+    <div class="container-blue">
+      <div class="login-box">
+        <div class="login-content">
+          <img src="assets/logo.png" alt="Meu Refúgio" class="logo">
+
+          <!-- Login View -->
+          @if (viewMode === 'login') {
+            <p class="subtitle">acesse sua conta</p>
+
+            <label>email</label>
+            <input type="email" [(ngModel)]="email" placeholder="email@email.com">
+
+            <label>senha</label>
+            <input type="password" [(ngModel)]="senha" placeholder="********" class="mb-3">
+
+            <button class="btn-primary" (click)="login()" [disabled]="loading">
+              {{ loading ? 'Carregando...' : 'Avançar' }}
+            </button>
+
+            <button class="link" (click)="setViewMode('cadastro')">Criar conta</button>
+            <button class="link" (click)="setViewMode('recuperar')">Esqueci minha senha</button>
+          }
+
+          <!-- Cadastro View -->
+          @if (viewMode === 'cadastro') {
+            <p class="subtitle">criar conta</p>
+
+            <label>email</label>
+            <input type="email" [(ngModel)]="email" placeholder="email@email.com">
+
+            <label>senha</label>
+            <input type="password" [(ngModel)]="senha" placeholder="mínimo 6 caracteres" class="mb-3">
+
+            <button class="btn-primary" (click)="cadastrar()" [disabled]="loading">
+              {{ loading ? 'Carregando...' : 'Cadastrar' }}
+            </button>
+
+            <button class="link" (click)="setViewMode('login')">Já tenho conta</button>
+          }
+
+          <!-- Recuperar View -->
+          @if (viewMode === 'recuperar') {
+            <p class="subtitle">recuperar acesso</p>
+
+            <label>email</label>
+            <input type="email" [(ngModel)]="email" placeholder="email@email.com" class="mb-3">
+
+            <button class="btn-primary" (click)="recuperarSenha()" [disabled]="loading">
+              {{ loading ? 'Carregando...' : 'Enviar link' }}
+            </button>
+
+            <button class="link" (click)="setViewMode('login')">Voltar</button>
+          }
+
+          @if (erro) {
+            <p class="erro">{{ erro }}</p>
+          }
+
+          @if (sucesso) {
+            <p class="sucesso">{{ sucesso }}</p>
+          }
+        </div>
+      </div>
+
+      <div class="side-text">
+        <h2>Que bom ter você aqui!</h2>
+        <p>
+          Entre com seus dados para acessar o FlowChat,
+          um espaço pensado para acolher você.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
