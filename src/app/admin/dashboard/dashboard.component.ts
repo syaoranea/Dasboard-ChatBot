@@ -1,6 +1,8 @@
-import { Component, OnInit, OnDestroy, inject } from '@angular/core';
+import { Component, OnInit, inject, DestroyRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { combineLatest, map, catchError, of } from 'rxjs';
 import { FirebaseService } from '../../shared/services/firebase.service';
 import { LoadingComponent } from '../../shared/components/loading/loading.component';
 
@@ -11,11 +13,11 @@ import { LoadingComponent } from '../../shared/components/loading/loading.compon
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss'
 })
-export class DashboardComponent implements OnInit, OnDestroy {
+export class DashboardComponent implements OnInit {
   private firebaseService = inject(FirebaseService);
-  private unsubscribes: (() => void)[] = [];
+  private destroyRef = inject(DestroyRef);
 
-  isLoading = false;
+  isLoading = true;
 
   counts = {
     usuarios: 0,
@@ -34,42 +36,36 @@ export class DashboardComponent implements OnInit, OnDestroy {
   ];
 
   ngOnInit(): void {
-    this.subscribeToCollections();
+    this.loadCollections();
   }
 
-  ngOnDestroy(): void {
-    this.unsubscribes.forEach(unsub => unsub());
+  private loadCollections(): void {
+    combineLatest({
+      usuarios: this.firebaseService.getCollection$<unknown>('usuarios').pipe(catchError(() => of([]))),
+      produtos: this.firebaseService.getCollection$<unknown>('produtos').pipe(catchError(() => of([]))),
+      clientes: this.firebaseService.getCollection$<unknown>('clientes').pipe(catchError(() => of([]))),
+      orcamentos: this.firebaseService.getCollection$<unknown>('orcamentos').pipe(catchError(() => of([]))),
+      categorias: this.firebaseService.getCollection$<unknown>('categorias').pipe(catchError(() => of([])))
+    }).pipe(
+      map(data => ({
+        usuarios: data.usuarios.length,
+        produtos: data.produtos.length,
+        clientes: data.clientes.length,
+        orcamentos: data.orcamentos.length,
+        categorias: data.categorias.length
+      })),
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe({
+      next: (counts) => {
+        this.counts = counts;
+        this.isLoading = false;
+      },
+      error: (error) => {
+        console.error('Erro ao carregar dados do dashboard:', error);
+        this.isLoading = false;
+      }
+    });
   }
-
-  private async subscribeToCollections(): Promise<void> {
-  this.isLoading = true;
-
-  const collections = ['usuarios', 'produtos', 'clientes', 'orcamentos', 'categorias'] as const;
-  let loadedCollections = 0;
-
-  try {
-    for (const collectionName of collections) {
-      const unsub = await this.firebaseService.subscribeToCollection(
-        collectionName,
-        (data) => {
-          this.counts[collectionName] = data.length;
-
-          loadedCollections++;
-
-          if (loadedCollections === collections.length) {
-            this.isLoading = false;
-          }
-        }
-      );
-
-      this.unsubscribes.push(unsub);
-    }
-  } catch (error) {
-    console.error('Erro ao carregar dados do dashboard:', error);
-    this.isLoading = false;
-  }
-}
-
 
   getCount(id: string): number {
     return this.counts[id as keyof typeof this.counts] || 0;

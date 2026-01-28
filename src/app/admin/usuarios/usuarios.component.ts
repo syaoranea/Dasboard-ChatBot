@@ -1,6 +1,8 @@
-import { Component, OnInit, OnDestroy, inject } from '@angular/core';
+import { Component, OnInit, inject, DestroyRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { finalize } from 'rxjs';
 import { FirebaseService } from '../../shared/services/firebase.service';
 import { ModalComponent } from '../../shared/components/modal/modal.component';
 import { ConfirmModalComponent } from '../../shared/components/confirm-modal/confirm-modal.component';
@@ -15,9 +17,9 @@ import { Usuario } from '../../core/models/interfaces';
   templateUrl: './usuarios.component.html',
   styleUrl: './usuarios.component.scss'
 })
-export class UsuariosComponent implements OnInit, OnDestroy {
+export class UsuariosComponent implements OnInit {
   private firebaseService = inject(FirebaseService);
-  private unsubscribe: (() => void) | null = null;
+  private destroyRef = inject(DestroyRef);
 
   usuarios: (Usuario & { id: string })[] = [];
   
@@ -26,7 +28,7 @@ export class UsuariosComponent implements OnInit, OnDestroy {
   isSuccessModalOpen = false;
   successMessage = '';
   
-  isLoading = false;
+  isLoading = true;
   isSaving = false;
   
   editingId: string | null = null;
@@ -39,23 +41,23 @@ export class UsuariosComponent implements OnInit, OnDestroy {
     nivel: 'operador'
   };
 
-  async ngOnInit(): Promise<void> {
-    try {
-      this.isLoading = true;
-      this.unsubscribe = await this.firebaseService.subscribeToCollection<Usuario>('usuarios', (data) => {
-        this.usuarios = data;
-        this.isLoading = false;
-      });
-    } catch (error) {
-      console.error('Erro ao carregar usuários:', error);
-      this.isLoading = false;
-    }
+  ngOnInit(): void {
+    this.loadUsuarios();
   }
 
-  ngOnDestroy(): void {
-    if (this.unsubscribe) {
-      this.unsubscribe();
-    }
+  private loadUsuarios(): void {
+    this.firebaseService.getCollection$<Usuario>('usuarios').pipe(
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe({
+      next: (data) => {
+        this.usuarios = data;
+        this.isLoading = false;
+      },
+      error: (error) => {
+        console.error('Erro ao carregar usuários:', error);
+        this.isLoading = false;
+      }
+    });
   }
 
   openModal(usuario?: Usuario & { id: string }): void {
@@ -75,22 +77,35 @@ export class UsuariosComponent implements OnInit, OnDestroy {
     this.formData = { nome: '', email: '', nivel: 'operador' };
   }
 
-  async saveUsuario(): Promise<void> {
-    try {
-      this.isSaving = true;
-      if (this.editingId) {
-        await this.firebaseService.updateDocument('usuarios', this.editingId, this.formData);
-        this.showSuccess(`Usuário "${this.formData.nome}" atualizado com sucesso!`);
-      } else {
-        await this.firebaseService.addDocument('usuarios', this.formData);
-        this.showSuccess(`"${this.formData.nome}" cadastrado com sucesso!`);
-      }
+  saveUsuario(): void {
+    this.isSaving = true;
+    const isEditing = !!this.editingId;
+    const message = isEditing
+      ? `Usuário "${this.formData.nome}" atualizado com sucesso!`
+      : `"${this.formData.nome}" cadastrado com sucesso!`;
+
+    const handleSuccess = () => {
+      this.isSaving = false;
+      this.showSuccess(message);
       this.closeModal();
-    } catch (error) {
+    };
+
+    const handleError = (error: Error) => {
+      this.isSaving = false;
       console.error('Erro ao salvar:', error);
       alert('Erro ao salvar usuário');
-    } finally {
-      this.isSaving = false;
+    };
+
+    if (isEditing && this.editingId) {
+      this.firebaseService.updateDocument$('usuarios', this.editingId, this.formData).subscribe({
+        next: handleSuccess,
+        error: handleError
+      });
+    } else {
+      this.firebaseService.addDocument$('usuarios', this.formData).subscribe({
+        next: handleSuccess,
+        error: handleError
+      });
     }
   }
 
@@ -106,19 +121,21 @@ export class UsuariosComponent implements OnInit, OnDestroy {
     this.deleteName = '';
   }
 
-  async confirmDelete(): Promise<void> {
+  confirmDelete(): void {
     if (this.deleteId) {
-      try {
-        this.isSaving = true;
-        await this.firebaseService.deleteDocument('usuarios', this.deleteId);
-        this.closeDeleteModal();
-        this.showSuccess('Registro excluído com sucesso!');
-      } catch (error) {
-        console.error('Erro ao excluir:', error);
-        alert('Erro ao excluir usuário');
-      } finally {
-        this.isSaving = false;
-      }
+      this.isSaving = true;
+      this.firebaseService.deleteDocument$('usuarios', this.deleteId).pipe(
+        finalize(() => this.isSaving = false)
+      ).subscribe({
+        next: () => {
+          this.closeDeleteModal();
+          this.showSuccess('Registro excluído com sucesso!');
+        },
+        error: (error) => {
+          console.error('Erro ao excluir:', error);
+          alert('Erro ao excluir usuário');
+        }
+      });
     }
   }
 

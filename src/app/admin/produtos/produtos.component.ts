@@ -1,6 +1,8 @@
-import { Component, OnInit, OnDestroy, inject } from '@angular/core';
+import { Component, OnInit, inject, DestroyRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { combineLatest, finalize } from 'rxjs';
 import { FirebaseService } from '../../shared/services/firebase.service';
 import { ModalComponent } from '../../shared/components/modal/modal.component';
 import { ConfirmModalComponent } from '../../shared/components/confirm-modal/confirm-modal.component';
@@ -15,9 +17,9 @@ import { Produto, Categoria } from '../../core/models/interfaces';
   templateUrl: './produtos.component.html',
   styleUrl: './produtos.component.scss'
 })
-export class ProdutosComponent implements OnInit, OnDestroy {
+export class ProdutosComponent implements OnInit {
   private firebaseService = inject(FirebaseService);
-  private unsubscribes: (() => void)[] = [];
+  private destroyRef = inject(DestroyRef);
 
   produtos: (Produto & { id: string })[] = [];
   categorias: (Categoria & { id: string })[] = [];
@@ -27,7 +29,7 @@ export class ProdutosComponent implements OnInit, OnDestroy {
   isSuccessModalOpen = false;
   successMessage = '';
 
-  isLoading = false;
+  isLoading = true;
   isSaving = false;
 
   editingId: string | null = null;
@@ -42,40 +44,28 @@ export class ProdutosComponent implements OnInit, OnDestroy {
     estoque: 0,
     ativo: true
   };
-  produtosLoaded = false;
-categoriasLoaded = false;
 
-  checkLoading() {
-  this.isLoading = !(this.produtosLoaded && this.categoriasLoaded);
-}
+  ngOnInit(): void {
+    this.loadData();
+  }
 
-async ngOnInit(): Promise<void> {
-  this.isLoading = true;
-
-  const unsubProdutos = await this.firebaseService.subscribeToCollection<Produto>(
-    'produtos',
-    (data) => {
-      this.produtos = data;
-      this.produtosLoaded = true;
-      this.checkLoading();
-    }
-  );
-
-  const unsubCategorias = await this.firebaseService.subscribeToCollection<Categoria>(
-    'categorias',
-    (data) => {
-      this.categorias = data;
-      this.categoriasLoaded = true;
-      this.checkLoading();
-    }
-  );
-
-  this.unsubscribes.push(unsubProdutos, unsubCategorias);
-}
-
-
-  ngOnDestroy(): void {
-    this.unsubscribes.forEach(unsub => unsub());
+  private loadData(): void {
+    combineLatest({
+      produtos: this.firebaseService.getCollection$<Produto>('produtos'),
+      categorias: this.firebaseService.getCollection$<Categoria>('categorias')
+    }).pipe(
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe({
+      next: (data) => {
+        this.produtos = data.produtos;
+        this.categorias = data.categorias;
+        this.isLoading = false;
+      },
+      error: (error) => {
+        console.error('Erro ao carregar dados:', error);
+        this.isLoading = false;
+      }
+    });
   }
 
   getCategoriaNome(categoriaId: string): string {
@@ -109,22 +99,35 @@ async ngOnInit(): Promise<void> {
     this.variacaoAtiva = !this.variacaoAtiva;
   }
 
-  async saveProduto(): Promise<void> {
-    try {
-      this.isSaving = true;
-      if (this.editingId) {
-        await this.firebaseService.updateDocument('produtos', this.editingId, this.formData);
-        this.showSuccess(`Produto "${this.formData.nome}" atualizado com sucesso!`);
-      } else {
-        await this.firebaseService.addDocument('produtos', this.formData);
-        this.showSuccess(`"${this.formData.nome}" cadastrado com sucesso!`);
-      }
+  saveProduto(): void {
+    this.isSaving = true;
+    const isEditing = !!this.editingId;
+    const message = isEditing
+      ? `Produto "${this.formData.nome}" atualizado com sucesso!`
+      : `"${this.formData.nome}" cadastrado com sucesso!`;
+
+    const handleSuccess = () => {
+      this.isSaving = false;
+      this.showSuccess(message);
       this.closeModal();
-    } catch (error) {
+    };
+
+    const handleError = (error: Error) => {
+      this.isSaving = false;
       console.error('Erro ao salvar:', error);
       alert('Erro ao salvar produto');
-    } finally {
-      this.isSaving = false;
+    };
+
+    if (isEditing && this.editingId) {
+      this.firebaseService.updateDocument$('produtos', this.editingId, this.formData).subscribe({
+        next: handleSuccess,
+        error: handleError
+      });
+    } else {
+      this.firebaseService.addDocument$('produtos', this.formData).subscribe({
+        next: handleSuccess,
+        error: handleError
+      });
     }
   }
 
@@ -140,19 +143,21 @@ async ngOnInit(): Promise<void> {
     this.deleteName = '';
   }
 
-  async confirmDelete(): Promise<void> {
+  confirmDelete(): void {
     if (this.deleteId) {
-      try {
-        this.isSaving = true;
-        await this.firebaseService.deleteDocument('produtos', this.deleteId);
-        this.closeDeleteModal();
-        this.showSuccess('Registro excluído com sucesso!');
-      } catch (error) {
-        console.error('Erro ao excluir:', error);
-        alert('Erro ao excluir produto');
-      } finally {
-        this.isSaving = false;
-      }
+      this.isSaving = true;
+      this.firebaseService.deleteDocument$('produtos', this.deleteId).pipe(
+        finalize(() => this.isSaving = false)
+      ).subscribe({
+        next: () => {
+          this.closeDeleteModal();
+          this.showSuccess('Registro excluído com sucesso!');
+        },
+        error: (error) => {
+          console.error('Erro ao excluir:', error);
+          alert('Erro ao excluir produto');
+        }
+      });
     }
   }
 
