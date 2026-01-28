@@ -1,6 +1,8 @@
-import { Component, OnInit, OnDestroy, inject } from '@angular/core';
+import { Component, OnInit, inject, DestroyRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { finalize } from 'rxjs';
 import { FirebaseService } from '../../shared/services/firebase.service';
 import { ModalComponent } from '../../shared/components/modal/modal.component';
 import { ConfirmModalComponent } from '../../shared/components/confirm-modal/confirm-modal.component';
@@ -15,9 +17,9 @@ import { Cliente } from '../../core/models/interfaces';
   templateUrl: './clientes.component.html',
   styleUrl: './clientes.component.scss'
 })
-export class ClientesComponent implements OnInit, OnDestroy {
+export class ClientesComponent implements OnInit {
   private firebaseService = inject(FirebaseService);
-  private unsubscribe: (() => void) | null = null;
+  private destroyRef = inject(DestroyRef);
 
   clientes: (Cliente & { id: string })[] = [];
   
@@ -26,7 +28,7 @@ export class ClientesComponent implements OnInit, OnDestroy {
   isSuccessModalOpen = false;
   successMessage = '';
   
-  isLoading = false;
+  isLoading = true;
   isSaving = false;
   
   editingId: string | null = null;
@@ -74,23 +76,23 @@ export class ClientesComponent implements OnInit, OnDestroy {
     estado: ''
   };
 
-  async ngOnInit(): Promise<void> {
-    try {
-      this.isLoading = true;
-      this.unsubscribe = await this.firebaseService.subscribeToCollection<Cliente>('clientes', (data) => {
-        this.clientes = data;
-        this.isLoading = false;
-      });
-    } catch (error) {
-      console.error('Erro ao carregar clientes:', error);
-      this.isLoading = false;
-    }
+  ngOnInit(): void {
+    this.loadClientes();
   }
 
-  ngOnDestroy(): void {
-    if (this.unsubscribe) {
-      this.unsubscribe();
-    }
+  private loadClientes(): void {
+    this.firebaseService.getCollection$<Cliente>('clientes').pipe(
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe({
+      next: (data) => {
+        this.clientes = data;
+        this.isLoading = false;
+      },
+      error: (error) => {
+        console.error('Erro ao carregar clientes:', error);
+        this.isLoading = false;
+      }
+    });
   }
 
   openModal(cliente?: Cliente & { id: string }): void {
@@ -110,22 +112,35 @@ export class ClientesComponent implements OnInit, OnDestroy {
     this.formData = { nome: '', documento: '', telefone: '', email: '', rua: '', cep: '', cidade: '', estado: '' };
   }
 
-  async saveCliente(): Promise<void> {
-    try {
-      this.isSaving = true;
-      if (this.editingId) {
-        await this.firebaseService.updateDocument('clientes', this.editingId, this.formData);
-        this.showSuccess(`Cliente "${this.formData.nome}" atualizado com sucesso!`);
-      } else {
-        await this.firebaseService.addDocument('clientes', this.formData);
-        this.showSuccess(`"${this.formData.nome}" cadastrado com sucesso!`);
-      }
+  saveCliente(): void {
+    this.isSaving = true;
+    const isEditing = !!this.editingId;
+    const message = isEditing
+      ? `Cliente "${this.formData.nome}" atualizado com sucesso!`
+      : `"${this.formData.nome}" cadastrado com sucesso!`;
+
+    const handleSuccess = () => {
+      this.isSaving = false;
+      this.showSuccess(message);
       this.closeModal();
-    } catch (error) {
+    };
+
+    const handleError = (error: Error) => {
+      this.isSaving = false;
       console.error('Erro ao salvar:', error);
       alert('Erro ao salvar cliente');
-    } finally {
-      this.isSaving = false;
+    };
+
+    if (isEditing && this.editingId) {
+      this.firebaseService.updateDocument$('clientes', this.editingId, this.formData).subscribe({
+        next: handleSuccess,
+        error: handleError
+      });
+    } else {
+      this.firebaseService.addDocument$('clientes', this.formData).subscribe({
+        next: handleSuccess,
+        error: handleError
+      });
     }
   }
 
@@ -141,19 +156,21 @@ export class ClientesComponent implements OnInit, OnDestroy {
     this.deleteName = '';
   }
 
-  async confirmDelete(): Promise<void> {
+  confirmDelete(): void {
     if (this.deleteId) {
-      try {
-        this.isSaving = true;
-        await this.firebaseService.deleteDocument('clientes', this.deleteId);
-        this.closeDeleteModal();
-        this.showSuccess('Registro excluído com sucesso!');
-      } catch (error) {
-        console.error('Erro ao excluir:', error);
-        alert('Erro ao excluir cliente');
-      } finally {
-        this.isSaving = false;
-      }
+      this.isSaving = true;
+      this.firebaseService.deleteDocument$('clientes', this.deleteId).pipe(
+        finalize(() => this.isSaving = false)
+      ).subscribe({
+        next: () => {
+          this.closeDeleteModal();
+          this.showSuccess('Registro excluído com sucesso!');
+        },
+        error: (error) => {
+          console.error('Erro ao excluir:', error);
+          alert('Erro ao excluir cliente');
+        }
+      });
     }
   }
 

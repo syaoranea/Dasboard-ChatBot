@@ -1,6 +1,8 @@
-import { Component, OnInit, OnDestroy, inject } from '@angular/core';
+import { Component, OnInit, inject, DestroyRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { combineLatest, finalize } from 'rxjs';
 import { FirebaseService } from '../../shared/services/firebase.service';
 import { ModalComponent } from '../../shared/components/modal/modal.component';
 import { ConfirmModalComponent } from '../../shared/components/confirm-modal/confirm-modal.component';
@@ -20,9 +22,9 @@ interface ProdutoItem {
   templateUrl: './orcamentos.component.html',
   styleUrl: './orcamentos.component.scss'
 })
-export class OrcamentosComponent implements OnInit, OnDestroy {
+export class OrcamentosComponent implements OnInit {
   private firebaseService = inject(FirebaseService);
-  private unsubscribes: (() => void)[] = [];
+  private destroyRef = inject(DestroyRef);
 
   orcamentos: (Orcamento & { id: string })[] = [];
   produtos: (Produto & { id: string })[] = [];
@@ -32,7 +34,7 @@ export class OrcamentosComponent implements OnInit, OnDestroy {
   isSuccessModalOpen = false;
   successMessage = '';
   
-  isLoading = false;
+  isLoading = true;
   isSaving = false;
   
   editingId: string | null = null;
@@ -48,29 +50,27 @@ export class OrcamentosComponent implements OnInit, OnDestroy {
     status: 'aberto'
   };
 
-  async ngOnInit(): Promise<void> {
-    try {
-      this.isLoading = true;
-      
-      const unsubOrcamentos = await this.firebaseService.subscribeToCollection<Orcamento>('orcamentos', (data) => {
-        this.orcamentos = data;
-      });
-      this.unsubscribes.push(unsubOrcamentos);
-
-      const unsubProdutos = await this.firebaseService.subscribeToCollection<Produto>('produtos', (data) => {
-        this.produtos = data;
-      });
-      this.unsubscribes.push(unsubProdutos);
-      
-      this.isLoading = false;
-    } catch (error) {
-      console.error('Erro ao carregar dados:', error);
-      this.isLoading = false;
-    }
+  ngOnInit(): void {
+    this.loadData();
   }
 
-  ngOnDestroy(): void {
-    this.unsubscribes.forEach(unsub => unsub());
+  private loadData(): void {
+    combineLatest({
+      orcamentos: this.firebaseService.getCollection$<Orcamento>('orcamentos'),
+      produtos: this.firebaseService.getCollection$<Produto>('produtos')
+    }).pipe(
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe({
+      next: (data) => {
+        this.orcamentos = data.orcamentos;
+        this.produtos = data.produtos;
+        this.isLoading = false;
+      },
+      error: (error) => {
+        console.error('Erro ao carregar dados:', error);
+        this.isLoading = false;
+      }
+    });
   }
 
   getProdutoNome(produtoId: string): string {
@@ -128,27 +128,39 @@ export class OrcamentosComponent implements OnInit, OnDestroy {
     this.formData.valor = total;
   }
 
-  async saveOrcamento(): Promise<void> {
-    try {
-      this.isSaving = true;
-      const dataToSave = {
-        ...this.formData,
-        produtos: this.produtosItems.filter(p => p.produtoId)
-      };
+  saveOrcamento(): void {
+    this.isSaving = true;
+    const dataToSave = {
+      ...this.formData,
+      produtos: this.produtosItems.filter(p => p.produtoId)
+    };
+    const isEditing = !!this.editingId;
+    const message = isEditing
+      ? 'Orçamento atualizado com sucesso!'
+      : 'Orçamento cadastrado com sucesso!';
 
-      if (this.editingId) {
-        await this.firebaseService.updateDocument('orcamentos', this.editingId, dataToSave);
-        this.showSuccess(`Orçamento atualizado com sucesso!`);
-      } else {
-        await this.firebaseService.addDocument('orcamentos', dataToSave);
-        this.showSuccess(`Orçamento cadastrado com sucesso!`);
-      }
+    const handleSuccess = () => {
+      this.isSaving = false;
+      this.showSuccess(message);
       this.closeModal();
-    } catch (error) {
+    };
+
+    const handleError = (error: Error) => {
+      this.isSaving = false;
       console.error('Erro ao salvar:', error);
       alert('Erro ao salvar orçamento');
-    } finally {
-      this.isSaving = false;
+    };
+
+    if (isEditing && this.editingId) {
+      this.firebaseService.updateDocument$('orcamentos', this.editingId, dataToSave).subscribe({
+        next: handleSuccess,
+        error: handleError
+      });
+    } else {
+      this.firebaseService.addDocument$('orcamentos', dataToSave).subscribe({
+        next: handleSuccess,
+        error: handleError
+      });
     }
   }
 
@@ -164,19 +176,21 @@ export class OrcamentosComponent implements OnInit, OnDestroy {
     this.deleteName = '';
   }
 
-  async confirmDelete(): Promise<void> {
+  confirmDelete(): void {
     if (this.deleteId) {
-      try {
-        this.isSaving = true;
-        await this.firebaseService.deleteDocument('orcamentos', this.deleteId);
-        this.closeDeleteModal();
-        this.showSuccess('Registro excluído com sucesso!');
-      } catch (error) {
-        console.error('Erro ao excluir:', error);
-        alert('Erro ao excluir orçamento');
-      } finally {
-        this.isSaving = false;
-      }
+      this.isSaving = true;
+      this.firebaseService.deleteDocument$('orcamentos', this.deleteId).pipe(
+        finalize(() => this.isSaving = false)
+      ).subscribe({
+        next: () => {
+          this.closeDeleteModal();
+          this.showSuccess('Registro excluído com sucesso!');
+        },
+        error: (error) => {
+          console.error('Erro ao excluir:', error);
+          alert('Erro ao excluir orçamento');
+        }
+      });
     }
   }
 

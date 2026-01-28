@@ -1,6 +1,8 @@
-import { Component, OnInit, OnDestroy, inject } from '@angular/core';
+import { Component, OnInit, inject, DestroyRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { finalize } from 'rxjs';
 import { FirebaseService } from '../../shared/services/firebase.service';
 import { ModalComponent } from '../../shared/components/modal/modal.component';
 import { ConfirmModalComponent } from '../../shared/components/confirm-modal/confirm-modal.component';
@@ -15,9 +17,9 @@ import { Categoria } from '../../core/models/interfaces';
   templateUrl: './categorias.component.html',
   styleUrl: './categorias.component.scss'
 })
-export class CategoriasComponent implements OnInit, OnDestroy {
+export class CategoriasComponent implements OnInit {
   private firebaseService = inject(FirebaseService);
-  private unsubscribe: (() => void) | null = null;
+  private destroyRef = inject(DestroyRef);
 
   categorias: (Categoria & { id: string })[] = [];
   
@@ -26,7 +28,7 @@ export class CategoriasComponent implements OnInit, OnDestroy {
   isSuccessModalOpen = false;
   successMessage = '';
   
-  isLoading = false;
+  isLoading = true;
   isSaving = false;
   
   editingId: string | null = null;
@@ -38,23 +40,23 @@ export class CategoriasComponent implements OnInit, OnDestroy {
     descricao: ''
   };
 
-  async ngOnInit(): Promise<void> {
-    try {
-      this.isLoading = true;
-      this.unsubscribe = await this.firebaseService.subscribeToCollection<Categoria>('categorias', (data) => {
-        this.categorias = data;
-        this.isLoading = false;
-      });
-    } catch (error) {
-      console.error('Erro ao carregar categorias:', error);
-      this.isLoading = false;
-    }
+  ngOnInit(): void {
+    this.loadCategorias();
   }
 
-  ngOnDestroy(): void {
-    if (this.unsubscribe) {
-      this.unsubscribe();
-    }
+  private loadCategorias(): void {
+    this.firebaseService.getCollection$<Categoria>('categorias').pipe(
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe({
+      next: (data) => {
+        this.categorias = data;
+        this.isLoading = false;
+      },
+      error: (error) => {
+        console.error('Erro ao carregar categorias:', error);
+        this.isLoading = false;
+      }
+    });
   }
 
   openModal(categoria?: Categoria & { id: string }): void {
@@ -74,22 +76,35 @@ export class CategoriasComponent implements OnInit, OnDestroy {
     this.formData = { nome: '', descricao: '' };
   }
 
-  async saveCategoria(): Promise<void> {
-    try {
-      this.isSaving = true;
-      if (this.editingId) {
-        await this.firebaseService.updateDocument('categorias', this.editingId, this.formData);
-        this.showSuccess(`Categoria "${this.formData.nome}" atualizada com sucesso!`);
-      } else {
-        await this.firebaseService.addDocument('categorias', this.formData);
-        this.showSuccess(`"${this.formData.nome}" cadastrada com sucesso!`);
-      }
+  saveCategoria(): void {
+    this.isSaving = true;
+    const isEditing = !!this.editingId;
+    const message = isEditing
+      ? `Categoria "${this.formData.nome}" atualizada com sucesso!`
+      : `"${this.formData.nome}" cadastrada com sucesso!`;
+
+    const handleSuccess = () => {
+      this.isSaving = false;
+      this.showSuccess(message);
       this.closeModal();
-    } catch (error) {
+    };
+
+    const handleError = (error: Error) => {
+      this.isSaving = false;
       console.error('Erro ao salvar:', error);
       alert('Erro ao salvar categoria');
-    } finally {
-      this.isSaving = false;
+    };
+
+    if (isEditing && this.editingId) {
+      this.firebaseService.updateDocument$('categorias', this.editingId, this.formData).subscribe({
+        next: handleSuccess,
+        error: handleError
+      });
+    } else {
+      this.firebaseService.addDocument$('categorias', this.formData).subscribe({
+        next: handleSuccess,
+        error: handleError
+      });
     }
   }
 
@@ -105,19 +120,21 @@ export class CategoriasComponent implements OnInit, OnDestroy {
     this.deleteName = '';
   }
 
-  async confirmDelete(): Promise<void> {
+  confirmDelete(): void {
     if (this.deleteId) {
-      try {
-        this.isSaving = true;
-        await this.firebaseService.deleteDocument('categorias', this.deleteId);
-        this.closeDeleteModal();
-        this.showSuccess('Registro excluído com sucesso!');
-      } catch (error) {
-        console.error('Erro ao excluir:', error);
-        alert('Erro ao excluir categoria');
-      } finally {
-        this.isSaving = false;
-      }
+      this.isSaving = true;
+      this.firebaseService.deleteDocument$('categorias', this.deleteId).pipe(
+        finalize(() => this.isSaving = false)
+      ).subscribe({
+        next: () => {
+          this.closeDeleteModal();
+          this.showSuccess('Registro excluído com sucesso!');
+        },
+        error: (error) => {
+          console.error('Erro ao excluir:', error);
+          alert('Erro ao excluir categoria');
+        }
+      });
     }
   }
 

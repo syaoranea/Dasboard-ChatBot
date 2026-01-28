@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable } from '@angular/core';
 import { initializeApp } from 'firebase/app';
 import {
   getAuth,
@@ -19,11 +19,22 @@ import {
   onSnapshot,
   serverTimestamp,
   getDoc,
-  Firestore,
   CollectionReference,
   DocumentData
 } from 'firebase/firestore';
-import { BehaviorSubject, Observable } from 'rxjs';
+import { 
+  BehaviorSubject, 
+  Observable, 
+  from, 
+  of,
+  throwError,
+  switchMap,
+  map,
+  catchError,
+  filter,
+  take,
+  shareReplay
+} from 'rxjs';
 
 const firebaseConfig = {
   apiKey: "AIzaSyD7lf9vlH-nL-m-8mUgD08SCbPqLTthftQ",
@@ -43,108 +54,162 @@ export class FirebaseService {
   private db = getFirestore(this.app);
   
   private currentUserSubject = new BehaviorSubject<User | null>(null);
+  private authInitializedSubject = new BehaviorSubject<boolean>(false);
+  
   public currentUser$ = this.currentUserSubject.asObservable();
+  public authInitialized$ = this.authInitializedSubject.asObservable();
   
   private currentUserUid: string | null = null;
-  private authInitialized = false;
-  private authInitPromise: Promise<void>;
 
   constructor() {
-    // Criar uma promise que resolve quando a autenticação é inicializada
-    this.authInitPromise = new Promise<void>((resolve) => {
-      onAuthStateChanged(this.auth, (user) => {
-        this.currentUserSubject.next(user);
-        this.currentUserUid = user?.uid || null;
-        if (!this.authInitialized) {
-          this.authInitialized = true;
-          resolve();
-        }
-      });
+    onAuthStateChanged(this.auth, (user) => {
+      this.currentUserSubject.next(user);
+      this.currentUserUid = user?.uid || null;
+      if (!this.authInitializedSubject.value) {
+        this.authInitializedSubject.next(true);
+      }
     });
   }
 
-  // Aguardar a inicialização da autenticação
-  private async waitForAuth(): Promise<void> {
-    if (!this.authInitialized) {
-      await this.authInitPromise;
-    }
+  private waitForAuth$(): Observable<string> {
+    return this.authInitialized$.pipe(
+      filter(initialized => initialized),
+      take(1),
+      switchMap(() => {
+        if (!this.currentUserUid) {
+          return throwError(() => new Error('User not authenticated'));
+        }
+        return of(this.currentUserUid);
+      })
+    );
   }
 
   get userId(): string | null {
     return this.currentUserUid;
   }
 
-  async login(email: string, password: string): Promise<void> {
-    await signInWithEmailAndPassword(this.auth, email, password);
+  get userId$(): Observable<string | null> {
+    return this.currentUser$.pipe(
+      map(user => user?.uid || null)
+    );
   }
 
-  async register(email: string, password: string): Promise<void> {
-    await createUserWithEmailAndPassword(this.auth, email, password);
+  login(email: string, password: string): Observable<void> {
+    return from(signInWithEmailAndPassword(this.auth, email, password)).pipe(
+      map(() => void 0),
+      catchError(error => throwError(() => error))
+    );
   }
 
-  async resetPassword(email: string): Promise<void> {
-    await sendPasswordResetEmail(this.auth, email);
+  register(email: string, password: string): Observable<void> {
+    return from(createUserWithEmailAndPassword(this.auth, email, password)).pipe(
+      map(() => void 0),
+      catchError(error => throwError(() => error))
+    );
   }
 
-  async logout(): Promise<void> {
-    await signOut(this.auth);
+  resetPassword(email: string): Observable<void> {
+    return from(sendPasswordResetEmail(this.auth, email)).pipe(
+      catchError(error => throwError(() => error))
+    );
+  }
+
+  logout(): Observable<void> {
+    return from(signOut(this.auth)).pipe(
+      catchError(error => throwError(() => error))
+    );
   }
 
   isAuthenticated(): boolean {
     return this.auth.currentUser !== null;
   }
 
-  private async getTenantCollection(collectionName: string): Promise<CollectionReference<DocumentData>> {
-    await this.waitForAuth();
-    if (!this.currentUserUid) {
-      throw new Error('User not authenticated');
-    }
-    return collection(this.db, 'usuarios', this.currentUserUid, collectionName);
+  isAuthenticated$(): Observable<boolean> {
+    return this.currentUser$.pipe(
+      map(user => user !== null)
+    );
   }
 
-  async subscribeToCollection<T>(collectionName: string, callback: (data: (T & { id: string })[]) => void): Promise<() => void> {
-    const tenantCollection = await this.getTenantCollection(collectionName);
-    return onSnapshot(tenantCollection, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as (T & { id: string })[];
-      callback(data);
-    });
+  private getTenantCollection$(collectionName: string): Observable<CollectionReference<DocumentData>> {
+    return this.waitForAuth$().pipe(
+      map(uid => collection(this.db, 'usuarios', uid, collectionName))
+    );
   }
 
-  async addDocument<T extends object>(collectionName: string, data: T): Promise<string> {
-    const tenantCollection = await this.getTenantCollection(collectionName);
-    const docRef = await addDoc(tenantCollection, {
-      ...data,
-      criadoEm: serverTimestamp(),
-      userId: this.currentUserUid
-    });
-    return docRef.id;
+  getCollection$<T>(collectionName: string): Observable<(T & { id: string })[]> {
+    return this.getTenantCollection$(collectionName).pipe(
+      switchMap(tenantCollection => {
+        return new Observable<(T & { id: string })[]>(observer => {
+          const unsubscribe = onSnapshot(
+            tenantCollection,
+            (snapshot) => {
+              const data = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+              })) as (T & { id: string })[];
+              observer.next(data);
+            },
+            (error) => {
+              observer.error(error);
+            }
+          );
+          return () => unsubscribe();
+        });
+      }),
+      shareReplay({ bufferSize: 1, refCount: true })
+    );
   }
 
-  async updateDocument<T extends object>(collectionName: string, docId: string, data: T): Promise<void> {
-    const tenantCollection = await this.getTenantCollection(collectionName);
-    const docRef = doc(tenantCollection, docId);
-    await updateDoc(docRef, {
-      ...data,
-      userId: this.currentUserUid
-    });
+  addDocument$<T extends object>(collectionName: string, data: T): Observable<string> {
+    return this.getTenantCollection$(collectionName).pipe(
+      switchMap(tenantCollection => {
+        return from(addDoc(tenantCollection, {
+          ...data,
+          criadoEm: serverTimestamp(),
+          userId: this.currentUserUid
+        }));
+      }),
+      map(docRef => docRef.id),
+      catchError(error => throwError(() => error))
+    );
   }
 
-  async deleteDocument(collectionName: string, docId: string): Promise<void> {
-    const tenantCollection = await this.getTenantCollection(collectionName);
-    const docRef = doc(tenantCollection, docId);
-    await deleteDoc(docRef);
+  updateDocument$<T extends object>(collectionName: string, docId: string, data: T): Observable<void> {
+    return this.getTenantCollection$(collectionName).pipe(
+      switchMap(tenantCollection => {
+        const docRef = doc(tenantCollection, docId);
+        return from(updateDoc(docRef, {
+          ...data,
+          userId: this.currentUserUid
+        }));
+      }),
+      catchError(error => throwError(() => error))
+    );
   }
 
-  async getDocument<T>(collectionName: string, docId: string): Promise<T | null> {
-    const tenantCollection = await this.getTenantCollection(collectionName);
-    const docRef = doc(tenantCollection, docId);
-    const docSnap = await getDoc(docRef);
-    if (docSnap.exists()) {
-      return { id: docSnap.id, ...docSnap.data() } as T;
-    }
-    return null;
+  deleteDocument$(collectionName: string, docId: string): Observable<void> {
+    return this.getTenantCollection$(collectionName).pipe(
+      switchMap(tenantCollection => {
+        const docRef = doc(tenantCollection, docId);
+        return from(deleteDoc(docRef));
+      }),
+      catchError(error => throwError(() => error))
+    );
+  }
+
+  getDocument$<T>(collectionName: string, docId: string): Observable<T | null> {
+    return this.getTenantCollection$(collectionName).pipe(
+      switchMap(tenantCollection => {
+        const docRef = doc(tenantCollection, docId);
+        return from(getDoc(docRef));
+      }),
+      map(docSnap => {
+        if (docSnap.exists()) {
+          return { id: docSnap.id, ...docSnap.data() } as T;
+        }
+        return null;
+      }),
+      catchError(error => throwError(() => error))
+    );
   }
 }
