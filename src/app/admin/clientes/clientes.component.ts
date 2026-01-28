@@ -5,12 +5,13 @@ import { FirebaseService } from '../../shared/services/firebase.service';
 import { ModalComponent } from '../../shared/components/modal/modal.component';
 import { ConfirmModalComponent } from '../../shared/components/confirm-modal/confirm-modal.component';
 import { SuccessModalComponent } from '../../shared/components/success-modal/success-modal.component';
+import { LoadingComponent } from '../../shared/components/loading/loading.component';
 import { Cliente } from '../../core/models/interfaces';
 
 @Component({
   selector: 'app-clientes',
   standalone: true,
-  imports: [CommonModule, FormsModule, ModalComponent, ConfirmModalComponent, SuccessModalComponent],
+  imports: [CommonModule, FormsModule, ModalComponent, ConfirmModalComponent, SuccessModalComponent, LoadingComponent],
   templateUrl: './clientes.component.html',
   styleUrl: './clientes.component.scss'
 })
@@ -24,6 +25,9 @@ export class ClientesComponent implements OnInit, OnDestroy {
   isDeleteModalOpen = false;
   isSuccessModalOpen = false;
   successMessage = '';
+  
+  isLoading = false;
+  isSaving = false;
   
   editingId: string | null = null;
   deleteId: string | null = null;
@@ -70,10 +74,17 @@ export class ClientesComponent implements OnInit, OnDestroy {
     estado: ''
   };
 
-  ngOnInit(): void {
-    this.unsubscribe = this.firebaseService.subscribeToCollection<Cliente>('clientes', (data) => {
-      this.clientes = data;
-    });
+  async ngOnInit(): Promise<void> {
+    try {
+      this.isLoading = true;
+      this.unsubscribe = await this.firebaseService.subscribeToCollection<Cliente>('clientes', (data) => {
+        this.clientes = data;
+        this.isLoading = false;
+      });
+    } catch (error) {
+      console.error('Erro ao carregar clientes:', error);
+      this.isLoading = false;
+    }
   }
 
   ngOnDestroy(): void {
@@ -101,6 +112,7 @@ export class ClientesComponent implements OnInit, OnDestroy {
 
   async saveCliente(): Promise<void> {
     try {
+      this.isSaving = true;
       if (this.editingId) {
         await this.firebaseService.updateDocument('clientes', this.editingId, this.formData);
         this.showSuccess(`Cliente "${this.formData.nome}" atualizado com sucesso!`);
@@ -112,6 +124,8 @@ export class ClientesComponent implements OnInit, OnDestroy {
     } catch (error) {
       console.error('Erro ao salvar:', error);
       alert('Erro ao salvar cliente');
+    } finally {
+      this.isSaving = false;
     }
   }
 
@@ -130,12 +144,15 @@ export class ClientesComponent implements OnInit, OnDestroy {
   async confirmDelete(): Promise<void> {
     if (this.deleteId) {
       try {
+        this.isSaving = true;
         await this.firebaseService.deleteDocument('clientes', this.deleteId);
         this.closeDeleteModal();
         this.showSuccess('Registro excluído com sucesso!');
       } catch (error) {
         console.error('Erro ao excluir:', error);
         alert('Erro ao excluir cliente');
+      } finally {
+        this.isSaving = false;
       }
     }
   }

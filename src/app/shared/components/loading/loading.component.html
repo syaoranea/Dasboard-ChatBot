@@ -1,0 +1,38 @@
+<!-- Spinner Loading -->
+<div *ngIf="type === 'spinner'" 
+     [class.loading-fullscreen]="fullScreen"
+     class="loading-container">
+  <div class="loading-content">
+    <div class="spinner" [ngClass]="'spinner-' + size">
+      <div class="spinner-circle"></div>
+      <div class="spinner-circle"></div>
+      <div class="spinner-circle"></div>
+      <div class="spinner-circle"></div>
+    </div>
+    <p *ngIf="message" class="loading-message">{{ message }}</p>
+  </div>
+</div>
+
+<!-- Skeleton Loading -->
+<div *ngIf="type === 'skeleton'" class="skeleton-container">
+  <div class="skeleton-item" *ngFor="let item of [1,2,3,4,5]">
+    <div class="skeleton-avatar"></div>
+    <div class="skeleton-lines">
+      <div class="skeleton-line skeleton-line-full"></div>
+      <div class="skeleton-line skeleton-line-medium"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Overlay Loading -->
+<div *ngIf="type === 'overlay'" class="loading-overlay">
+  <div class="overlay-content">
+    <div class="spinner spinner-large">
+      <div class="spinner-circle"></div>
+      <div class="spinner-circle"></div>
+      <div class="spinner-circle"></div>
+      <div class="spinner-circle"></div>
+    </div>
+    <p *ngIf="message" class="loading-message text-white">{{ message }}</p>
+  </div>
+</div>

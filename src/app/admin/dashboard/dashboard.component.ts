@@ -2,17 +2,20 @@ import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FirebaseService } from '../../shared/services/firebase.service';
+import { LoadingComponent } from '../../shared/components/loading/loading.component';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, LoadingComponent],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss'
 })
 export class DashboardComponent implements OnInit, OnDestroy {
   private firebaseService = inject(FirebaseService);
   private unsubscribes: (() => void)[] = [];
+
+  isLoading = false;
 
   counts = {
     usuarios: 0,
@@ -38,16 +41,35 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.unsubscribes.forEach(unsub => unsub());
   }
 
-  private subscribeToCollections(): void {
-    const collections = ['usuarios', 'produtos', 'clientes', 'orcamentos', 'categorias'] as const;
-    
-    collections.forEach(collectionName => {
-      const unsub = this.firebaseService.subscribeToCollection(collectionName, (data) => {
-        this.counts[collectionName] = data.length;
-      });
+  private async subscribeToCollections(): Promise<void> {
+  this.isLoading = true;
+
+  const collections = ['usuarios', 'produtos', 'clientes', 'orcamentos', 'categorias'] as const;
+  let loadedCollections = 0;
+
+  try {
+    for (const collectionName of collections) {
+      const unsub = await this.firebaseService.subscribeToCollection(
+        collectionName,
+        (data) => {
+          this.counts[collectionName] = data.length;
+
+          loadedCollections++;
+
+          if (loadedCollections === collections.length) {
+            this.isLoading = false;
+          }
+        }
+      );
+
       this.unsubscribes.push(unsub);
-    });
+    }
+  } catch (error) {
+    console.error('Erro ao carregar dados do dashboard:', error);
+    this.isLoading = false;
   }
+}
+
 
   getCount(id: string): number {
     return this.counts[id as keyof typeof this.counts] || 0;

@@ -11,17 +11,21 @@
 
 <!-- Table Card -->
 <div class="card overflow-hidden">
-  <div class="overflow-x-auto">
-    <table class="w-full">
-      <thead>
-        <tr class="bg-[var(--gray-50)] border-b border-[var(--gray-200)]">
-          <th class="px-6 py-4 text-left text-xs font-semibold text-[var(--gray-500)] uppercase tracking-wider">Usuário</th>
-          <th class="px-6 py-4 text-left text-xs font-semibold text-[var(--gray-500)] uppercase tracking-wider">E-mail</th>
-          <th class="px-6 py-4 text-left text-xs font-semibold text-[var(--gray-500)] uppercase tracking-wider">Nível</th>
-          <th class="px-6 py-4 text-right text-xs font-semibold text-[var(--gray-500)] uppercase tracking-wider">Ações</th>
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-[var(--gray-100)]">
+  <!-- Loading State -->
+  @if (isLoading) {
+    <app-loading type="skeleton" message="Carregando usuários..."></app-loading>
+  } @else {
+    <div class="overflow-x-auto">
+      <table class="w-full">
+        <thead>
+          <tr class="bg-[var(--gray-50)] border-b border-[var(--gray-200)]">
+            <th class="px-6 py-4 text-left text-xs font-semibold text-[var(--gray-500)] uppercase tracking-wider">Usuário</th>
+            <th class="px-6 py-4 text-left text-xs font-semibold text-[var(--gray-500)] uppercase tracking-wider">E-mail</th>
+            <th class="px-6 py-4 text-left text-xs font-semibold text-[var(--gray-500)] uppercase tracking-wider">Nível</th>
+            <th class="px-6 py-4 text-right text-xs font-semibold text-[var(--gray-500)] uppercase tracking-wider">Ações</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-[var(--gray-100)]">
         @for (usuario of usuarios; track usuario.id) {
           <tr class="hover:bg-[var(--gray-50)] transition-colors">
             <td class="px-6 py-4">
@@ -65,10 +69,16 @@
             </td>
           </tr>
         }
-      </tbody>
-    </table>
-  </div>
+        </tbody>
+      </table>
+    </div>
+  }
 </div>
+
+<!-- Loading Overlay para operações -->
+@if (isSaving) {
+  <app-loading type="overlay" message="Processando..."></app-loading>
+}
 
 <!-- Modal de Cadastro/Edição -->
 <app-modal [isOpen]="isModalOpen" [title]="editingId ? 'Editar Usuário' : 'Novo Usuário'" (close)="closeModal()">

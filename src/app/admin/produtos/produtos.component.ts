@@ -5,12 +5,13 @@ import { FirebaseService } from '../../shared/services/firebase.service';
 import { ModalComponent } from '../../shared/components/modal/modal.component';
 import { ConfirmModalComponent } from '../../shared/components/confirm-modal/confirm-modal.component';
 import { SuccessModalComponent } from '../../shared/components/success-modal/success-modal.component';
+import { LoadingComponent } from '../../shared/components/loading/loading.component';
 import { Produto, Categoria } from '../../core/models/interfaces';
 
 @Component({
   selector: 'app-produtos',
   standalone: true,
-  imports: [CommonModule, FormsModule, ModalComponent, ConfirmModalComponent, SuccessModalComponent],
+  imports: [CommonModule, FormsModule, ModalComponent, ConfirmModalComponent, SuccessModalComponent, LoadingComponent],
   templateUrl: './produtos.component.html',
   styleUrl: './produtos.component.scss'
 })
@@ -20,12 +21,15 @@ export class ProdutosComponent implements OnInit, OnDestroy {
 
   produtos: (Produto & { id: string })[] = [];
   categorias: (Categoria & { id: string })[] = [];
-  
+
   isModalOpen = false;
   isDeleteModalOpen = false;
   isSuccessModalOpen = false;
   successMessage = '';
-  
+
+  isLoading = false;
+  isSaving = false;
+
   editingId: string | null = null;
   deleteId: string | null = null;
   deleteName = '';
@@ -38,18 +42,37 @@ export class ProdutosComponent implements OnInit, OnDestroy {
     estoque: 0,
     ativo: true
   };
+  produtosLoaded = false;
+categoriasLoaded = false;
 
-  ngOnInit(): void {
-    const unsubProdutos = this.firebaseService.subscribeToCollection<Produto>('produtos', (data) => {
+  checkLoading() {
+  this.isLoading = !(this.produtosLoaded && this.categoriasLoaded);
+}
+
+async ngOnInit(): Promise<void> {
+  this.isLoading = true;
+
+  const unsubProdutos = await this.firebaseService.subscribeToCollection<Produto>(
+    'produtos',
+    (data) => {
       this.produtos = data;
-    });
-    this.unsubscribes.push(unsubProdutos);
+      this.produtosLoaded = true;
+      this.checkLoading();
+    }
+  );
 
-    const unsubCategorias = this.firebaseService.subscribeToCollection<Categoria>('categorias', (data) => {
+  const unsubCategorias = await this.firebaseService.subscribeToCollection<Categoria>(
+    'categorias',
+    (data) => {
       this.categorias = data;
-    });
-    this.unsubscribes.push(unsubCategorias);
-  }
+      this.categoriasLoaded = true;
+      this.checkLoading();
+    }
+  );
+
+  this.unsubscribes.push(unsubProdutos, unsubCategorias);
+}
+
 
   ngOnDestroy(): void {
     this.unsubscribes.forEach(unsub => unsub());
@@ -88,6 +111,7 @@ export class ProdutosComponent implements OnInit, OnDestroy {
 
   async saveProduto(): Promise<void> {
     try {
+      this.isSaving = true;
       if (this.editingId) {
         await this.firebaseService.updateDocument('produtos', this.editingId, this.formData);
         this.showSuccess(`Produto "${this.formData.nome}" atualizado com sucesso!`);
@@ -99,6 +123,8 @@ export class ProdutosComponent implements OnInit, OnDestroy {
     } catch (error) {
       console.error('Erro ao salvar:', error);
       alert('Erro ao salvar produto');
+    } finally {
+      this.isSaving = false;
     }
   }
 
@@ -117,12 +143,15 @@ export class ProdutosComponent implements OnInit, OnDestroy {
   async confirmDelete(): Promise<void> {
     if (this.deleteId) {
       try {
+        this.isSaving = true;
         await this.firebaseService.deleteDocument('produtos', this.deleteId);
         this.closeDeleteModal();
         this.showSuccess('Registro excluído com sucesso!');
       } catch (error) {
         console.error('Erro ao excluir:', error);
         alert('Erro ao excluir produto');
+      } finally {
+        this.isSaving = false;
       }
     }
   }

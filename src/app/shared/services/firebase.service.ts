@@ -46,12 +46,28 @@ export class FirebaseService {
   public currentUser$ = this.currentUserSubject.asObservable();
   
   private currentUserUid: string | null = null;
+  private authInitialized = false;
+  private authInitPromise: Promise<void>;
 
   constructor() {
-    onAuthStateChanged(this.auth, (user) => {
-      this.currentUserSubject.next(user);
-      this.currentUserUid = user?.uid || null;
+    // Criar uma promise que resolve quando a autenticação é inicializada
+    this.authInitPromise = new Promise<void>((resolve) => {
+      onAuthStateChanged(this.auth, (user) => {
+        this.currentUserSubject.next(user);
+        this.currentUserUid = user?.uid || null;
+        if (!this.authInitialized) {
+          this.authInitialized = true;
+          resolve();
+        }
+      });
     });
+  }
+
+  // Aguardar a inicialização da autenticação
+  private async waitForAuth(): Promise<void> {
+    if (!this.authInitialized) {
+      await this.authInitPromise;
+    }
   }
 
   get userId(): string | null {
@@ -78,15 +94,16 @@ export class FirebaseService {
     return this.auth.currentUser !== null;
   }
 
-  private getTenantCollection(collectionName: string): CollectionReference<DocumentData> {
+  private async getTenantCollection(collectionName: string): Promise<CollectionReference<DocumentData>> {
+    await this.waitForAuth();
     if (!this.currentUserUid) {
       throw new Error('User not authenticated');
     }
     return collection(this.db, 'usuarios', this.currentUserUid, collectionName);
   }
 
-  subscribeToCollection<T>(collectionName: string, callback: (data: (T & { id: string })[]) => void): () => void {
-    const tenantCollection = this.getTenantCollection(collectionName);
+  async subscribeToCollection<T>(collectionName: string, callback: (data: (T & { id: string })[]) => void): Promise<() => void> {
+    const tenantCollection = await this.getTenantCollection(collectionName);
     return onSnapshot(tenantCollection, (snapshot) => {
       const data = snapshot.docs.map(doc => ({
         id: doc.id,
@@ -97,7 +114,7 @@ export class FirebaseService {
   }
 
   async addDocument<T extends object>(collectionName: string, data: T): Promise<string> {
-    const tenantCollection = this.getTenantCollection(collectionName);
+    const tenantCollection = await this.getTenantCollection(collectionName);
     const docRef = await addDoc(tenantCollection, {
       ...data,
       criadoEm: serverTimestamp(),
@@ -107,7 +124,8 @@ export class FirebaseService {
   }
 
   async updateDocument<T extends object>(collectionName: string, docId: string, data: T): Promise<void> {
-    const docRef = doc(this.getTenantCollection(collectionName), docId);
+    const tenantCollection = await this.getTenantCollection(collectionName);
+    const docRef = doc(tenantCollection, docId);
     await updateDoc(docRef, {
       ...data,
       userId: this.currentUserUid
@@ -115,12 +133,14 @@ export class FirebaseService {
   }
 
   async deleteDocument(collectionName: string, docId: string): Promise<void> {
-    const docRef = doc(this.getTenantCollection(collectionName), docId);
+    const tenantCollection = await this.getTenantCollection(collectionName);
+    const docRef = doc(tenantCollection, docId);
     await deleteDoc(docRef);
   }
 
   async getDocument<T>(collectionName: string, docId: string): Promise<T | null> {
-    const docRef = doc(this.getTenantCollection(collectionName), docId);
+    const tenantCollection = await this.getTenantCollection(collectionName);
+    const docRef = doc(tenantCollection, docId);
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
       return { id: docSnap.id, ...docSnap.data() } as T;

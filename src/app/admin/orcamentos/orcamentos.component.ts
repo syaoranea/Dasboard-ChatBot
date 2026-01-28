@@ -5,6 +5,7 @@ import { FirebaseService } from '../../shared/services/firebase.service';
 import { ModalComponent } from '../../shared/components/modal/modal.component';
 import { ConfirmModalComponent } from '../../shared/components/confirm-modal/confirm-modal.component';
 import { SuccessModalComponent } from '../../shared/components/success-modal/success-modal.component';
+import { LoadingComponent } from '../../shared/components/loading/loading.component';
 import { Orcamento, Produto } from '../../core/models/interfaces';
 
 interface ProdutoItem {
@@ -15,7 +16,7 @@ interface ProdutoItem {
 @Component({
   selector: 'app-orcamentos',
   standalone: true,
-  imports: [CommonModule, FormsModule, ModalComponent, ConfirmModalComponent, SuccessModalComponent],
+  imports: [CommonModule, FormsModule, ModalComponent, ConfirmModalComponent, SuccessModalComponent, LoadingComponent],
   templateUrl: './orcamentos.component.html',
   styleUrl: './orcamentos.component.scss'
 })
@@ -31,6 +32,9 @@ export class OrcamentosComponent implements OnInit, OnDestroy {
   isSuccessModalOpen = false;
   successMessage = '';
   
+  isLoading = false;
+  isSaving = false;
+  
   editingId: string | null = null;
   deleteId: string | null = null;
   deleteName = '';
@@ -44,16 +48,25 @@ export class OrcamentosComponent implements OnInit, OnDestroy {
     status: 'aberto'
   };
 
-  ngOnInit(): void {
-    const unsubOrcamentos = this.firebaseService.subscribeToCollection<Orcamento>('orcamentos', (data) => {
-      this.orcamentos = data;
-    });
-    this.unsubscribes.push(unsubOrcamentos);
+  async ngOnInit(): Promise<void> {
+    try {
+      this.isLoading = true;
+      
+      const unsubOrcamentos = await this.firebaseService.subscribeToCollection<Orcamento>('orcamentos', (data) => {
+        this.orcamentos = data;
+      });
+      this.unsubscribes.push(unsubOrcamentos);
 
-    const unsubProdutos = this.firebaseService.subscribeToCollection<Produto>('produtos', (data) => {
-      this.produtos = data;
-    });
-    this.unsubscribes.push(unsubProdutos);
+      const unsubProdutos = await this.firebaseService.subscribeToCollection<Produto>('produtos', (data) => {
+        this.produtos = data;
+      });
+      this.unsubscribes.push(unsubProdutos);
+      
+      this.isLoading = false;
+    } catch (error) {
+      console.error('Erro ao carregar dados:', error);
+      this.isLoading = false;
+    }
   }
 
   ngOnDestroy(): void {
@@ -117,6 +130,7 @@ export class OrcamentosComponent implements OnInit, OnDestroy {
 
   async saveOrcamento(): Promise<void> {
     try {
+      this.isSaving = true;
       const dataToSave = {
         ...this.formData,
         produtos: this.produtosItems.filter(p => p.produtoId)
@@ -133,6 +147,8 @@ export class OrcamentosComponent implements OnInit, OnDestroy {
     } catch (error) {
       console.error('Erro ao salvar:', error);
       alert('Erro ao salvar orçamento');
+    } finally {
+      this.isSaving = false;
     }
   }
 
@@ -151,12 +167,15 @@ export class OrcamentosComponent implements OnInit, OnDestroy {
   async confirmDelete(): Promise<void> {
     if (this.deleteId) {
       try {
+        this.isSaving = true;
         await this.firebaseService.deleteDocument('orcamentos', this.deleteId);
         this.closeDeleteModal();
         this.showSuccess('Registro excluído com sucesso!');
       } catch (error) {
         console.error('Erro ao excluir:', error);
         alert('Erro ao excluir orçamento');
+      } finally {
+        this.isSaving = false;
       }
     }
   }
