@@ -1,6 +1,6 @@
-@import "tailwindcss";
-
-@plugin "@tailwindcss/forms";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
   --primary-50: #f0f5ff;

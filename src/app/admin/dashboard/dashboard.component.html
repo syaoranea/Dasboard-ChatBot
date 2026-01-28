@@ -5,25 +5,31 @@
 </div>
 
 <!-- Stats Cards -->
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5 mb-8">
-  @for (card of cards; track card.id) {
-    <div class="card p-5 hover:shadow-md transition-shadow duration-200 group cursor-pointer">
-      <div class="flex items-center justify-between mb-4">
-        <div class="w-12 h-12 rounded-xl {{ card.bgColor }} flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
-          <i class="fas {{ card.icon }} text-lg {{ card.textColor }}"></i>
+@if (isLoading) {
+  <div class="mb-8">
+    <app-loading type="spinner" size="large" message="Carregando estatísticas..."></app-loading>
+  </div>
+} @else {
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5 mb-8">
+    @for (card of cards; track card.id) {
+      <div class="card p-5 hover:shadow-md transition-shadow duration-200 group cursor-pointer">
+        <div class="flex items-center justify-between mb-4">
+          <div class="w-12 h-12 rounded-xl {{ card.bgColor }} flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
+            <i class="fas {{ card.icon }} text-lg {{ card.textColor }}"></i>
+          </div>
+          <div class="flex items-center gap-1 text-xs text-[var(--success-500)]">
+            <i class="fas fa-arrow-up"></i>
+            <span>12%</span>
+          </div>
         </div>
-        <div class="flex items-center gap-1 text-xs text-[var(--success-500)]">
-          <i class="fas fa-arrow-up"></i>
-          <span>12%</span>
+        <div>
+          <p class="text-2xl font-bold text-[var(--gray-900)] mb-1">{{ getCount(card.id) }}</p>
+          <p class="text-sm text-[var(--gray-500)]">{{ card.label }}</p>
         </div>
       </div>
-      <div>
-        <p class="text-2xl font-bold text-[var(--gray-900)] mb-1">{{ getCount(card.id) }}</p>
-        <p class="text-sm text-[var(--gray-500)]">{{ card.label }}</p>
-      </div>
-    </div>
-  }
-</div>
+    }
+  </div>
+}
 
 <!-- Quick Actions Section -->
 <div class="mb-8">
