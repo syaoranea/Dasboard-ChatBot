@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, DestroyRef } from '@angular/core';
+import { Component, OnInit, inject, DestroyRef, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -45,6 +45,9 @@ export class ProdutosComponent implements OnInit {
     ativo: true
   };
 
+  constructor(
+    private readonly cdr: ChangeDetectorRef
+  ){}
   ngOnInit(): void {
     this.loadData();
   }
@@ -60,6 +63,7 @@ export class ProdutosComponent implements OnInit {
         this.produtos = data.produtos;
         this.categorias = data.categorias;
         this.isLoading = false;
+        this.cdr.detectChanges();
       },
       error: (error) => {
         console.error('Erro ao carregar dados:', error);

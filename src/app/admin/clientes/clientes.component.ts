@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, DestroyRef } from '@angular/core';
+import { Component, OnInit, inject, DestroyRef, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -22,15 +22,15 @@ export class ClientesComponent implements OnInit {
   private destroyRef = inject(DestroyRef);
 
   clientes: (Cliente & { id: string })[] = [];
-  
+
   isModalOpen = false;
   isDeleteModalOpen = false;
   isSuccessModalOpen = false;
   successMessage = '';
-  
+
   isLoading = true;
   isSaving = false;
-  
+
   editingId: string | null = null;
   deleteId: string | null = null;
   deleteName = '';
@@ -76,6 +76,11 @@ export class ClientesComponent implements OnInit {
     estado: ''
   };
 
+
+  constructor(
+    private readonly cdr: ChangeDetectorRef
+  ){}
+
   ngOnInit(): void {
     this.loadClientes();
   }
@@ -87,10 +92,12 @@ export class ClientesComponent implements OnInit {
       next: (data) => {
         this.clientes = data;
         this.isLoading = false;
+        this.cdr.detectChanges();
       },
       error: (error) => {
         console.error('Erro ao carregar clientes:', error);
         this.isLoading = false;
+        this.cdr.detectChanges();
       }
     });
   }

@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, DestroyRef } from '@angular/core';
+import { Component, OnInit, inject, DestroyRef, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -28,15 +28,15 @@ export class OrcamentosComponent implements OnInit {
 
   orcamentos: (Orcamento & { id: string })[] = [];
   produtos: (Produto & { id: string })[] = [];
-  
+
   isModalOpen = false;
   isDeleteModalOpen = false;
   isSuccessModalOpen = false;
   successMessage = '';
-  
+
   isLoading = true;
   isSaving = false;
-  
+
   editingId: string | null = null;
   deleteId: string | null = null;
   deleteName = '';
@@ -49,6 +49,11 @@ export class OrcamentosComponent implements OnInit {
     valor: 0,
     status: 'aberto'
   };
+
+
+  constructor(
+    private readonly cdr: ChangeDetectorRef
+  ){}
 
   ngOnInit(): void {
     this.loadData();
@@ -65,10 +70,14 @@ export class OrcamentosComponent implements OnInit {
         this.orcamentos = data.orcamentos;
         this.produtos = data.produtos;
         this.isLoading = false;
+        this.cdr.detectChanges();
+
       },
       error: (error) => {
         console.error('Erro ao carregar dados:', error);
         this.isLoading = false;
+        this.cdr.detectChanges();
+
       }
     });
   }
@@ -87,8 +96,8 @@ export class OrcamentosComponent implements OnInit {
     if (orcamento) {
       this.editingId = orcamento.id;
       this.formData = { ...orcamento };
-      this.produtosItems = orcamento.produtos?.length 
-        ? [...orcamento.produtos] 
+      this.produtosItems = orcamento.produtos?.length
+        ? [...orcamento.produtos]
         : [{ produtoId: '', quantidade: 1 }];
     } else {
       this.editingId = null;

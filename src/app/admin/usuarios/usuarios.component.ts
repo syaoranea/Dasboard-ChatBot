@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, DestroyRef } from '@angular/core';
+import { Component, OnInit, inject, DestroyRef, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -22,15 +22,15 @@ export class UsuariosComponent implements OnInit {
   private destroyRef = inject(DestroyRef);
 
   usuarios: (Usuario & { id: string })[] = [];
-  
+
   isModalOpen = false;
   isDeleteModalOpen = false;
   isSuccessModalOpen = false;
   successMessage = '';
-  
+
   isLoading = true;
   isSaving = false;
-  
+
   editingId: string | null = null;
   deleteId: string | null = null;
   deleteName = '';
@@ -41,6 +41,11 @@ export class UsuariosComponent implements OnInit {
     nivel: 'operador'
   };
 
+
+  constructor(
+    private readonly cdr: ChangeDetectorRef
+  ){}
+  
   ngOnInit(): void {
     this.loadUsuarios();
   }
@@ -52,10 +57,12 @@ export class UsuariosComponent implements OnInit {
       next: (data) => {
         this.usuarios = data;
         this.isLoading = false;
+        this.cdr.detectChanges();
       },
       error: (error) => {
         console.error('Erro ao carregar usuários:', error);
         this.isLoading = false;
+        this.cdr.detectChanges();
       }
     });
   }

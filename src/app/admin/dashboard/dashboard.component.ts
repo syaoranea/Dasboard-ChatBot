@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, DestroyRef } from '@angular/core';
+import { Component, OnInit, inject, DestroyRef, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -35,6 +35,11 @@ export class DashboardComponent implements OnInit {
     { id: 'categorias', label: 'Categorias', icon: 'fa-tags', bgColor: 'bg-indigo-100', textColor: 'text-indigo-600' }
   ];
 
+
+  constructor(
+    private readonly cdr: ChangeDetectorRef
+  ){}
+
   ngOnInit(): void {
     this.loadCollections();
   }
@@ -59,10 +64,13 @@ export class DashboardComponent implements OnInit {
       next: (counts) => {
         this.counts = counts;
         this.isLoading = false;
+        this.cdr.detectChanges();
+
       },
       error: (error) => {
         console.error('Erro ao carregar dados do dashboard:', error);
         this.isLoading = false;
+        this.cdr.detectChanges();
       }
     });
   }
