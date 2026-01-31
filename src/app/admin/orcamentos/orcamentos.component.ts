@@ -89,7 +89,7 @@ export class OrcamentosComponent implements OnInit {
 
   getProdutoPreco(produtoId: string): number {
     const produto = this.produtos.find(p => p.id === produtoId);
-    return produto ? produto.preco : 0;
+    return produto ? (produto.preco || 0) : 0;
   }
 
   openModal(orcamento?: Orcamento & { id: string }): void {

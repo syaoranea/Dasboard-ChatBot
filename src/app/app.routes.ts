@@ -31,7 +31,7 @@ export const routes: Routes = [
       },
       {
         path: 'produtos',
-        loadComponent: () => import('./admin/produtos/produtos.component').then(m => m.ProdutosComponent)
+        loadComponent: () => import('./admin/produtos/produtos-v2.component').then(m => m.ProdutosV2Component)
       },
       {
         path: 'clientes',

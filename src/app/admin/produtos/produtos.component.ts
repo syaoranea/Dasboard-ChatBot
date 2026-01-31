@@ -68,6 +68,7 @@ export class ProdutosComponent implements OnInit {
       error: (error) => {
         console.error('Erro ao carregar dados:', error);
         this.isLoading = false;
+        this.cdr.detectChanges();
       }
     });
   }
