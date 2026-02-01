@@ -37,12 +37,11 @@ import { Produto, SKU, OrcamentoItem } from '../../../../core/models/interfaces'
             @for (sku of skus(); track sku.id) {
               <div
                 class="border rounded-lg p-4 cursor-pointer transition-all"
-                [class.border-[var(--gray-200)]="selectedSku()?.id !== sku.id"
-                [class.bg-white]="selectedSku()?.id !== sku.id"
-                [class.border-[var(--primary-500)]="selectedSku()?.id === sku.id"
-                [class.bg-[var(--primary-50)]="selectedSku()?.id === sku.id"
-                [class.opacity-50]="!sku.ativo || (sku.estoque || 0) <= 0"
-                [class.cursor-not-allowed]="!sku.ativo || (sku.estoque || 0) <= 0"
+                [ngClass]="{
+                  'border-gray-200 bg-white': selectedSku()?.id !== sku.id,
+                  'border-primary-500 bg-primary-50': selectedSku()?.id === sku.id,
+                  'opacity-50 cursor-not-allowed': !sku.ativo || (sku.estoque || 0) <= 0
+                }"
                 (click)="selectSku(sku)"
               >
                 <!-- Cabeçalho do SKU -->
@@ -155,7 +154,11 @@ import { Produto, SKU, OrcamentoItem } from '../../../../core/models/interfaces'
       </div>
     }
   `,
-  styles: [``]
+  styles: [`
+    .border-gray-200 { border-color: var(--gray-200); }
+    .border-primary-500 { border-color: var(--primary-500); }
+    .bg-primary-50 { background-color: var(--primary-50); }
+  `]
 })
 export class SkuSelectorComponent implements OnChanges {
   private produtoSkuService = inject(ProdutoSkuService);
