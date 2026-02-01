@@ -192,6 +192,7 @@ export class ProdutosV2Component implements OnInit {
     this.deleteId = produto.id;
     this.deleteName = produto.nome;
     this.isDeleteModalOpen = true;
+
   }
 
   /**
@@ -214,6 +215,7 @@ export class ProdutosV2Component implements OnInit {
       next: () => {
         this.isSaving = false;
         this.closeDeleteModal();
+        this.cdr.detectChanges();
         this.showSuccess('Produto e seus SKUs excluídos com sucesso!');
       },
       error: (error) => {
@@ -230,6 +232,8 @@ export class ProdutosV2Component implements OnInit {
   showSuccess(message: string): void {
     this.successMessage = message;
     this.isSuccessModalOpen = true;
+    this.cdr.detectChanges();
+
   }
 
   /**

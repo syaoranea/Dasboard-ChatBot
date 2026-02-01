@@ -76,7 +76,47 @@ export interface Cliente {
   userId?: string;
 }
 
+// ===== ORÇAMENTO (Nova Estrutura com SKUs) =====
 export interface Orcamento {
+  id?: string;
+  status: 'RASCUNHO' | 'ENVIADO' | 'APROVADO' | 'REJEITADO' | 'CONVERTIDO';
+  clienteId: string; // Referência ao ID do cliente
+  validade?: string; // Data de validade (formato ISO)
+  condicaoPagamento?: string;
+  observacoes?: string;
+  valores: OrcamentoValores;
+  itens: OrcamentoItem[];
+  criadoEm?: any;
+  atualizadoEm?: any;
+  userId?: string;
+}
+
+export interface OrcamentoValores {
+  subtotal: number;
+  desconto: number; // Desconto geral em valor
+  frete: number;
+  total: number;
+}
+
+export interface OrcamentoItem {
+  sku: string; // Código SKU único
+  produtoId: string; // Referência ao produto pai
+  descricao: string; // Descrição completa do item (ex: "Camiseta Básica - Preto - M")
+  quantidade: number;
+  precoUnitario: number; // Preço no momento da criação (snapshot)
+  desconto: number; // Desconto por item em valor
+  total: number; // Total do item (quantidade * precoUnitario - desconto)
+  snapshot: OrcamentoItemSnapshot; // Dados congelados do momento da criação
+}
+
+export interface OrcamentoItemSnapshot {
+  atributos: { [key: string]: string }; // Ex: { "Cor": "Preto", "Tamanho": "M" }
+  produtoNome: string; // Nome do produto no momento da criação
+  categoriaNome?: string; // Nome da categoria (opcional)
+}
+
+// ===== ORÇAMENTO LEGACY (Manter compatibilidade temporária) =====
+export interface OrcamentoLegacy {
   id?: string;
   cliente: string;
   produtos?: OrcamentoProduto[];

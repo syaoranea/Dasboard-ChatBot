@@ -2,7 +2,7 @@
 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
   <div>
     <h1 class="text-xl font-bold text-[var(--gray-900)]">Orçamentos</h1>
-    <p class="text-sm text-[var(--gray-500)] mt-1">Gerencie seus orçamentos e propostas</p>
+    <p class="text-sm text-[var(--gray-500)] mt-1">Gerencie seus orçamentos e propostas com SKUs</p>
   </div>
   <button (click)="openModal()" class="btn-primary">
     <i class="fas fa-plus"></i> Novo Orçamento
@@ -21,58 +21,86 @@
           <tr class="bg-[var(--gray-50)] border-b border-[var(--gray-200)]">
             <th class="px-6 py-4 text-left text-xs font-semibold text-[var(--gray-500)] uppercase tracking-wider">Orçamento</th>
             <th class="px-6 py-4 text-left text-xs font-semibold text-[var(--gray-500)] uppercase tracking-wider">Cliente</th>
+            <th class="px-6 py-4 text-left text-xs font-semibold text-[var(--gray-500)] uppercase tracking-wider">Itens</th>
             <th class="px-6 py-4 text-left text-xs font-semibold text-[var(--gray-500)] uppercase tracking-wider">Valor Total</th>
-          <th class="px-6 py-4 text-left text-xs font-semibold text-[var(--gray-500)] uppercase tracking-wider">Status</th>
-          <th class="px-6 py-4 text-right text-xs font-semibold text-[var(--gray-500)] uppercase tracking-wider">Ações</th>
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-[var(--gray-100)]">
-        @for (orcamento of orcamentos; track orcamento.id) {
-          <tr class="hover:bg-[var(--gray-50)] transition-colors">
-            <td class="px-6 py-4">
-              <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
-                  <i class="fas fa-file-invoice-dollar text-amber-600"></i>
+            <th class="px-6 py-4 text-left text-xs font-semibold text-[var(--gray-500)] uppercase tracking-wider">Status</th>
+            <th class="px-6 py-4 text-left text-xs font-semibold text-[var(--gray-500)] uppercase tracking-wider">Validade</th>
+            <th class="px-6 py-4 text-right text-xs font-semibold text-[var(--gray-500)] uppercase tracking-wider">Ações</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-[var(--gray-100)]">
+          @for (orcamento of orcamentos; track orcamento.id) {
+            <tr class="hover:bg-[var(--gray-50)] transition-colors">
+              <td class="px-6 py-4">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
+                    <i class="fas fa-file-invoice-dollar text-amber-600"></i>
+                  </div>
+                  <div>
+                    <p class="font-medium text-[var(--gray-900)]">#{{ orcamento.id }}</p>
+                    <p class="text-xs text-[var(--gray-500)]">{{ formatarData(orcamento.criadoEm) }}</p>
+                  </div>
                 </div>
+              </td>
+              <td class="px-6 py-4">
+                <p class="text-[var(--gray-900)] font-medium">{{ getClienteNome(orcamento.clienteId) }}</p>
+                @if (orcamento.condicaoPagamento) {
+                  <p class="text-xs text-[var(--gray-500)] mt-0.5">{{ orcamento.condicaoPagamento }}</p>
+                }
+              </td>
+              <td class="px-6 py-4">
+                <span class="inline-flex items-center px-2.5 py-1 rounded-full bg-[var(--gray-100)] text-[var(--gray-700)] text-sm font-medium">
+                  <i class="fas fa-box mr-1.5"></i>
+                  {{ orcamento.itens.length }} {{ orcamento.itens.length === 1 ? 'item' : 'itens' }}
+                </span>
+              </td>
+              <td class="px-6 py-4">
                 <div>
-                  <p class="font-medium text-[var(--gray-900)]">#{{ orcamento.id }}</p>
-                  <p class="text-xs text-[var(--gray-500)]">Orçamento</p>
+                  <span class="font-bold text-[var(--success-700)] text-lg">R$ {{ orcamento.valores.total | number:'1.2-2' }}</span>
+                  @if (orcamento.valores.desconto > 0) {
+                    <p class="text-xs text-red-600 mt-0.5">
+                      <i class="fas fa-tag mr-1"></i>
+                      Desconto: R$ {{ orcamento.valores.desconto | number:'1.2-2' }}
+                    </p>
+                  }
                 </div>
-              </div>
-            </td>
-            <td class="px-6 py-4 text-[var(--gray-600)]">{{ orcamento.cliente }}</td>
-            <td class="px-6 py-4">
-              <span class="font-semibold text-[var(--success-700)]">R$ {{ orcamento.valor | number:'1.2-2' }}</span>
-            </td>
-            <td class="px-6 py-4">
-              <span class="badge" [ngClass]="getStatusClass(orcamento.status)">
-                {{ orcamento.status }}
-              </span>
-            </td>
-            <td class="px-6 py-4 text-right">
-              <div class="flex items-center justify-end gap-2">
-                <button (click)="openModal(orcamento)" class="p-2 text-[var(--gray-400)] hover:text-[var(--primary-600)] hover:bg-[var(--primary-50)] rounded-lg transition-all" title="Editar">
-                  <i class="fas fa-edit"></i>
-                </button>
-                <button (click)="openDeleteModal(orcamento)" class="p-2 text-[var(--gray-400)] hover:text-[var(--error-500)] hover:bg-[var(--error-50)] rounded-lg transition-all" title="Excluir">
-                  <i class="fas fa-trash"></i>
-                </button>
-              </div>
-            </td>
-          </tr>
-        } @empty {
-          <tr>
-            <td colspan="5" class="px-6 py-12 text-center">
-              <div class="flex flex-col items-center">
-                <div class="w-16 h-16 rounded-full bg-[var(--gray-100)] flex items-center justify-center mb-4">
-                  <i class="fas fa-file-invoice-dollar text-2xl text-[var(--gray-400)]"></i>
+              </td>
+              <td class="px-6 py-4">
+                <span class="badge" [ngClass]="getStatusClass(orcamento.status)">
+                  {{ getStatusLabel(orcamento.status) }}
+                </span>
+              </td>
+              <td class="px-6 py-4">
+                @if (orcamento.validade) {
+                  <p class="text-sm text-[var(--gray-600)]">{{ formatarData(orcamento.validade) }}</p>
+                } @else {
+                  <p class="text-sm text-[var(--gray-400)]">-</p>
+                }
+              </td>
+              <td class="px-6 py-4 text-right">
+                <div class="flex items-center justify-end gap-2">
+                  <button (click)="openModal(orcamento)" class="p-2 text-[var(--gray-400)] hover:text-[var(--primary-600)] hover:bg-[var(--primary-50)] rounded-lg transition-all" title="Editar">
+                    <i class="fas fa-edit"></i>
+                  </button>
+                  <button (click)="openDeleteModal(orcamento)" class="p-2 text-[var(--gray-400)] hover:text-[var(--error-500)] hover:bg-[var(--error-50)] rounded-lg transition-all" title="Excluir">
+                    <i class="fas fa-trash"></i>
+                  </button>
                 </div>
-                <p class="text-[var(--gray-500)] font-medium">Nenhum orçamento cadastrado</p>
-                <p class="text-sm text-[var(--gray-400)] mt-1">Clique em "Novo Orçamento" para criar</p>
-              </div>
-            </td>
-          </tr>
-        }
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="7" class="px-6 py-12 text-center">
+                <div class="flex flex-col items-center">
+                  <div class="w-16 h-16 rounded-full bg-[var(--gray-100)] flex items-center justify-center mb-4">
+                    <i class="fas fa-file-invoice-dollar text-2xl text-[var(--gray-400)]"></i>
+                  </div>
+                  <p class="text-[var(--gray-500)] font-medium">Nenhum orçamento cadastrado</p>
+                  <p class="text-sm text-[var(--gray-400)] mt-1">Clique em "Novo Orçamento" para criar</p>
+                </div>
+              </td>
+            </tr>
+          }
         </tbody>
       </table>
     </div>
@@ -84,72 +112,25 @@
   <app-loading type="overlay" message="Processando..."></app-loading>
 }
 
-<!-- Modal de Cadastro/Edição -->
-<app-modal [isOpen]="isModalOpen" [title]="editingId ? 'Editar Orçamento' : 'Novo Orçamento'" (close)="closeModal()">
-  <form (ngSubmit)="saveOrcamento()" class="space-y-5">
-    <div>
-      <label class="block text-sm font-medium text-[var(--gray-700)] mb-1.5">Cliente</label>
-      <input [(ngModel)]="formData.cliente" name="cliente" placeholder="Nome do cliente" 
-             class="w-full border border-[var(--gray-300)] px-4 py-2.5 rounded-lg text-[var(--gray-900)] placeholder-[var(--gray-400)]" required>
-    </div>
-    
-    <div>
-      <label class="block text-sm font-medium text-[var(--gray-700)] mb-2">Produtos</label>
-      @for (item of produtosItems; track $index; let i = $index) {
-        <div class="flex gap-2 mb-2">
-          <select [(ngModel)]="item.produtoId" [name]="'produtoId_' + i" 
-                  class="flex-1 border border-[var(--gray-300)] px-4 py-2.5 rounded-lg text-[var(--gray-900)]" 
-                  (change)="calcularTotal()" required>
-            <option value="">Selecione um produto...</option>
-            @for (produto of produtos; track produto.id) {
-              <option [value]="produto.id">{{ produto.nome }} - R$ {{ produto.preco | number:'1.2-2' }}</option>
-            }
-          </select>
-          <input [(ngModel)]="item.quantidade" [name]="'quantidade_' + i" type="number" min="1" 
-                 placeholder="Qtd" class="w-20 border border-[var(--gray-300)] px-3 py-2.5 rounded-lg text-[var(--gray-900)]" 
-                 (change)="calcularTotal()" required>
-          @if (produtosItems.length > 1) {
-            <button type="button" (click)="removerProduto(i)" class="p-2 text-[var(--gray-400)] hover:text-[var(--error-500)] hover:bg-[var(--error-50)] rounded-lg transition-all">
-              <i class="fas fa-trash"></i>
-            </button>
-          }
-        </div>
-      }
-      <button type="button" (click)="adicionarProduto()" class="mt-2 text-[var(--primary-600)] hover:text-[var(--primary-700)] text-sm flex items-center gap-1 font-medium">
-        <i class="fas fa-plus"></i> Adicionar mais produto
-      </button>
-    </div>
-    
-    <div>
-      <label class="block text-sm font-medium text-[var(--gray-700)] mb-1.5">Valor do Frete (R$)</label>
-      <input [(ngModel)]="formData.frete" name="frete" type="number" step="0.01" placeholder="0.00" 
-             class="w-full border border-[var(--gray-300)] px-4 py-2.5 rounded-lg text-[var(--gray-900)] placeholder-[var(--gray-400)]" (change)="calcularTotal()">
-    </div>
-    
-    <div>
-      <label class="block text-sm font-medium text-[var(--gray-700)] mb-1.5">Valor Total (R$)</label>
-      <input [value]="formData.valor | number:'1.2-2'" name="valor" type="text" 
-             class="w-full border border-[var(--gray-300)] px-4 py-2.5 rounded-lg text-[var(--gray-900)] bg-[var(--gray-50)]" readonly>
-    </div>
-    
-    <div>
-      <label class="block text-sm font-medium text-[var(--gray-700)] mb-1.5">Status</label>
-      <select [(ngModel)]="formData.status" name="status" class="w-full border border-[var(--gray-300)] px-4 py-2.5 rounded-lg text-[var(--gray-900)]">
-        <option value="aberto">Aberto</option>
-        <option value="aprovado">Aprovado</option>
-        <option value="rejeitado">Rejeitado</option>
-      </select>
-    </div>
-    
-    <div class="flex justify-end gap-3 pt-4 border-t border-[var(--gray-200)]">
-      <button type="button" (click)="closeModal()" class="btn-secondary">Cancelar</button>
-      <button type="submit" class="btn-primary">Salvar</button>
-    </div>
-  </form>
-</app-modal>
+<!-- Modal de Cadastro/Edição com Stepper -->
+<app-orcamento-modal
+  [isOpen]="isModalOpen"
+  [editingOrcamento]="editingOrcamento"
+  (close)="closeModal()"
+  (saved)="onOrcamentoSaved()"
+></app-orcamento-modal>
 
 <!-- Modal de Confirmação de Exclusão -->
-<app-confirm-modal [isOpen]="isDeleteModalOpen" [message]="'Tem certeza que deseja excluir o orçamento de &quot;' + deleteName + '&quot;? Esta ação não pode ser desfeita.'" (confirm)="confirmDelete()" (cancel)="closeDeleteModal()"></app-confirm-modal>
+<app-confirm-modal 
+  [isOpen]="isDeleteModalOpen" 
+  [message]="'Tem certeza que deseja excluir o orçamento de &quot;' + deleteName + '&quot;? Esta ação não pode ser desfeita.'" 
+  (confirm)="confirmDelete()" 
+  (cancel)="closeDeleteModal()"
+></app-confirm-modal>
 
 <!-- Modal de Sucesso -->
-<app-success-modal [isOpen]="isSuccessModalOpen" [message]="successMessage" (close)="closeSuccessModal()"></app-success-modal>
+<app-success-modal 
+  [isOpen]="isSuccessModalOpen" 
+  [message]="successMessage" 
+  (close)="closeSuccessModal()"
+></app-success-modal>

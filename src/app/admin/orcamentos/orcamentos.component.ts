@@ -1,24 +1,28 @@
 import { Component, OnInit, inject, DestroyRef, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { combineLatest, finalize } from 'rxjs';
+import { finalize } from 'rxjs';
 import { FirebaseService } from '../../shared/services/firebase.service';
-import { ModalComponent } from '../../shared/components/modal/modal.component';
 import { ConfirmModalComponent } from '../../shared/components/confirm-modal/confirm-modal.component';
 import { SuccessModalComponent } from '../../shared/components/success-modal/success-modal.component';
 import { LoadingComponent } from '../../shared/components/loading/loading.component';
-import { Orcamento, Produto } from '../../core/models/interfaces';
+import { OrcamentoModalComponent } from './components/orcamento-modal/orcamento-modal.component';
+import { Orcamento, Cliente } from '../../core/models/interfaces';
 
-interface ProdutoItem {
-  produtoId: string;
-  quantidade: number;
-}
-
+/**
+ * Componente principal de gerenciamento de orçamentos
+ * Lista orçamentos e permite criar/editar/excluir usando o modal completo
+ */
 @Component({
   selector: 'app-orcamentos',
   standalone: true,
-  imports: [CommonModule, FormsModule, ModalComponent, ConfirmModalComponent, SuccessModalComponent, LoadingComponent],
+  imports: [
+    CommonModule,
+    ConfirmModalComponent,
+    SuccessModalComponent,
+    LoadingComponent,
+    OrcamentoModalComponent
+  ],
   templateUrl: './orcamentos.component.html',
   styleUrl: './orcamentos.component.scss'
 })
@@ -27,7 +31,7 @@ export class OrcamentosComponent implements OnInit {
   private destroyRef = inject(DestroyRef);
 
   orcamentos: (Orcamento & { id: string })[] = [];
-  produtos: (Produto & { id: string })[] = [];
+  clientes: (Cliente & { id: string })[] = [];
 
   isModalOpen = false;
   isDeleteModalOpen = false;
@@ -37,19 +41,9 @@ export class OrcamentosComponent implements OnInit {
   isLoading = true;
   isSaving = false;
 
-  editingId: string | null = null;
+  editingOrcamento: (Orcamento & { id: string }) | null = null;
   deleteId: string | null = null;
   deleteName = '';
-
-  produtosItems: ProdutoItem[] = [{ produtoId: '', quantidade: 1 }];
-
-  formData: Orcamento = {
-    cliente: '',
-    frete: 0,
-    valor: 0,
-    status: 'aberto'
-  };
-
 
   constructor(
     private readonly cdr: ChangeDetectorRef
@@ -60,123 +54,66 @@ export class OrcamentosComponent implements OnInit {
   }
 
   private loadData(): void {
-    combineLatest({
-      orcamentos: this.firebaseService.getCollection$<Orcamento>('orcamentos'),
-      produtos: this.firebaseService.getCollection$<Produto>('produtos')
-    }).pipe(
-      takeUntilDestroyed(this.destroyRef)
-    ).subscribe({
-      next: (data) => {
-        this.orcamentos = data.orcamentos;
-        this.produtos = data.produtos;
-        this.isLoading = false;
-        this.cdr.detectChanges();
+    // Carregar orçamentos
+    this.firebaseService.getCollection$<Orcamento>('orcamentos')
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (orcamentos) => {
+          this.orcamentos = orcamentos;
+          this.isLoading = false;
+          this.cdr.detectChanges();
+        },
+        error: (error) => {
+          console.error('Erro ao carregar orçamentos:', error);
+          this.isLoading = false;
+          this.cdr.detectChanges();
+        }
+      });
 
-      },
-      error: (error) => {
-        console.error('Erro ao carregar dados:', error);
-        this.isLoading = false;
-        this.cdr.detectChanges();
-
-      }
-    });
+    // Carregar clientes para exibição
+    this.firebaseService.getCollection$<Cliente>('clientes')
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (clientes) => {
+          this.clientes = clientes;
+          this.cdr.detectChanges();
+        },
+        error: (error) => {
+          console.error('Erro ao carregar clientes:', error);
+        }
+      });
   }
 
-  getProdutoNome(produtoId: string): string {
-    const produto = this.produtos.find(p => p.id === produtoId);
-    return produto ? produto.nome : '-';
-  }
-
-  getProdutoPreco(produtoId: string): number {
-    const produto = this.produtos.find(p => p.id === produtoId);
-    return produto ? (produto.preco || 0) : 0;
+  getClienteNome(clienteId: string): string {
+    const cliente = this.clientes.find(c => c.id === clienteId);
+    return cliente ? cliente.nome : 'Cliente não encontrado';
   }
 
   openModal(orcamento?: Orcamento & { id: string }): void {
-    if (orcamento) {
-      this.editingId = orcamento.id;
-      this.formData = { ...orcamento };
-      this.produtosItems = orcamento.produtos?.length
-        ? [...orcamento.produtos]
-        : [{ produtoId: '', quantidade: 1 }];
-    } else {
-      this.editingId = null;
-      this.formData = { cliente: '', frete: 0, valor: 0, status: 'aberto' };
-      this.produtosItems = [{ produtoId: '', quantidade: 1 }];
-    }
+    this.editingOrcamento = orcamento || null;
     this.isModalOpen = true;
   }
 
   closeModal(): void {
     this.isModalOpen = false;
-    this.editingId = null;
-    this.formData = { cliente: '', frete: 0, valor: 0, status: 'aberto' };
-    this.produtosItems = [{ produtoId: '', quantidade: 1 }];
+    this.editingOrcamento = null;
   }
 
-  adicionarProduto(): void {
-    this.produtosItems.push({ produtoId: '', quantidade: 1 });
-  }
-
-  removerProduto(index: number): void {
-    if (this.produtosItems.length > 1) {
-      this.produtosItems.splice(index, 1);
-      this.calcularTotal();
-    }
-  }
-
-  calcularTotal(): void {
-    let total = 0;
-    this.produtosItems.forEach(item => {
-      if (item.produtoId) {
-        const preco = this.getProdutoPreco(item.produtoId);
-        total += preco * item.quantidade;
-      }
-    });
-    total += this.formData.frete || 0;
-    this.formData.valor = total;
-  }
-
-  saveOrcamento(): void {
-    this.isSaving = true;
-    const dataToSave = {
-      ...this.formData,
-      produtos: this.produtosItems.filter(p => p.produtoId)
-    };
-    const isEditing = !!this.editingId;
-    const message = isEditing
-      ? 'Orçamento atualizado com sucesso!'
-      : 'Orçamento cadastrado com sucesso!';
-
-    const handleSuccess = () => {
-      this.isSaving = false;
-      this.showSuccess(message);
-      this.closeModal();
-    };
-
-    const handleError = (error: Error) => {
-      this.isSaving = false;
-      console.error('Erro ao salvar:', error);
-      alert('Erro ao salvar orçamento');
-    };
-
-    if (isEditing && this.editingId) {
-      this.firebaseService.updateDocument$('orcamentos', this.editingId, dataToSave).subscribe({
-        next: handleSuccess,
-        error: handleError
-      });
-    } else {
-      this.firebaseService.addDocument$('orcamentos', dataToSave).subscribe({
-        next: handleSuccess,
-        error: handleError
-      });
-    }
+  onOrcamentoSaved(): void {
+    this.showSuccess(
+      this.editingOrcamento
+        ? 'Orçamento atualizado com sucesso!'
+        : 'Orçamento criado com sucesso!'
+    );
   }
 
   openDeleteModal(orcamento: Orcamento & { id: string }): void {
     this.deleteId = orcamento.id;
-    this.deleteName = orcamento.cliente;
+    const cliente = this.clientes.find(c => c.id === orcamento.clienteId);
+    this.deleteName = cliente?.nome || 'Cliente desconhecido';
     this.isDeleteModalOpen = true;
+    this.cdr.detectChanges();
+
   }
 
   closeDeleteModal(): void {
@@ -193,11 +130,13 @@ export class OrcamentosComponent implements OnInit {
       ).subscribe({
         next: () => {
           this.closeDeleteModal();
-          this.showSuccess('Registro excluído com sucesso!');
+          this.showSuccess('Orçamento excluído com sucesso!');
+          this.cdr.detectChanges();
         },
         error: (error) => {
           console.error('Erro ao excluir:', error);
           alert('Erro ao excluir orçamento');
+          this.cdr.detectChanges();
         }
       });
     }
@@ -215,9 +154,33 @@ export class OrcamentosComponent implements OnInit {
 
   getStatusClass(status: string): string {
     switch (status) {
-      case 'aprovado': return 'bg-green-100 text-green-800';
-      case 'rejeitado': return 'bg-red-100 text-red-800';
-      default: return 'bg-yellow-100 text-yellow-800';
+      case 'ENVIADO': return 'bg-blue-100 text-blue-800';
+      case 'APROVADO': return 'bg-green-100 text-green-800';
+      case 'REJEITADO': return 'bg-red-100 text-red-800';
+      case 'CONVERTIDO': return 'bg-purple-100 text-purple-800';
+      case 'RASCUNHO':
+      default:
+        return 'bg-yellow-100 text-yellow-800';
     }
+  }
+
+  getStatusLabel(status: string): string {
+    return status.charAt(0) + status.slice(1).toLowerCase();
+  }
+
+  formatarData(data: any): string {
+    if (!data) return '-';
+
+    // Se for um Timestamp do Firebase
+    if (data.toDate) {
+      return data.toDate().toLocaleDateString('pt-BR');
+    }
+
+    // Se for uma string ISO
+    if (typeof data === 'string') {
+      return new Date(data).toLocaleDateString('pt-BR');
+    }
+
+    return '-';
   }
 }

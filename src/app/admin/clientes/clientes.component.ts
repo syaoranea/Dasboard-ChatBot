@@ -171,10 +171,12 @@ export class ClientesComponent implements OnInit {
       ).subscribe({
         next: () => {
           this.closeDeleteModal();
+          this.cdr.detectChanges();
           this.showSuccess('Registro excluído com sucesso!');
         },
         error: (error) => {
           console.error('Erro ao excluir:', error);
+          this.cdr.detectChanges();
           alert('Erro ao excluir cliente');
         }
       });

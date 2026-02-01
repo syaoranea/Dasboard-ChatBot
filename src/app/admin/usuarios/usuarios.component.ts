@@ -45,7 +45,7 @@ export class UsuariosComponent implements OnInit {
   constructor(
     private readonly cdr: ChangeDetectorRef
   ){}
-  
+
   ngOnInit(): void {
     this.loadUsuarios();
   }
@@ -136,10 +136,12 @@ export class UsuariosComponent implements OnInit {
       ).subscribe({
         next: () => {
           this.closeDeleteModal();
+          this.cdr.detectChanges();
           this.showSuccess('Registro excluído com sucesso!');
         },
         error: (error) => {
           console.error('Erro ao excluir:', error);
+          this.cdr.detectChanges();
           alert('Erro ao excluir usuário');
         }
       });
