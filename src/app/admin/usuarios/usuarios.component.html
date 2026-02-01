@@ -12,7 +12,7 @@
 <!-- Table Card -->
 <div class="card overflow-hidden">
   <!-- Loading State -->
-  @if (isLoading) {
+  @if (isLoading()) {
     <app-loading type="skeleton" message="Carregando usuários..."></app-loading>
   } @else {
     <div class="overflow-x-auto">
@@ -26,7 +26,7 @@
           </tr>
         </thead>
         <tbody class="divide-y divide-[var(--gray-100)]">
-        @for (usuario of usuarios; track usuario.id) {
+        @for (usuario of usuarios(); track usuario.id) {
           <tr class="hover:bg-[var(--gray-50)] transition-colors">
             <td class="px-6 py-4">
               <div class="flex items-center gap-3">
@@ -76,12 +76,12 @@
 </div>
 
 <!-- Loading Overlay para operações -->
-@if (isSaving) {
+@if (isSaving()) {
   <app-loading type="overlay" message="Processando..."></app-loading>
 }
 
 <!-- Modal de Cadastro/Edição -->
-<app-modal [isOpen]="isModalOpen" [title]="editingId ? 'Editar Usuário' : 'Novo Usuário'" (close)="closeModal()">
+<app-modal [isOpen]="isModalOpen()" [title]="editingId() ? 'Editar Usuário' : 'Novo Usuário'" (close)="closeModal()">
   <form (ngSubmit)="saveUsuario()" class="space-y-5">
     <div>
       <label class="block text-sm font-medium text-[var(--gray-700)] mb-1.5">Nome Completo</label>
@@ -109,7 +109,7 @@
 </app-modal>
 
 <!-- Modal de Confirmação de Exclusão -->
-<app-confirm-modal [isOpen]="isDeleteModalOpen" [message]="'Tem certeza que deseja excluir &quot;' + deleteName + '&quot;? Esta ação não pode ser desfeita.'" (confirm)="confirmDelete()" (cancel)="closeDeleteModal()"></app-confirm-modal>
+<app-confirm-modal [isOpen]="isDeleteModalOpen()" [message]="'Tem certeza que deseja excluir &quot;' + deleteName() + '&quot;? Esta ação não pode ser desfeita.'" (confirm)="confirmDelete()" (cancel)="closeDeleteModal()"></app-confirm-modal>
 
 <!-- Modal de Sucesso -->
-<app-success-modal [isOpen]="isSuccessModalOpen" [message]="successMessage" (close)="closeSuccessModal()"></app-success-modal>
+<app-success-modal [isOpen]="isSuccessModalOpen()" [message]="successMessage()" (close)="closeSuccessModal()"></app-success-modal>

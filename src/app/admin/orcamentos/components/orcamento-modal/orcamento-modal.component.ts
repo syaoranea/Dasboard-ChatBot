@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, OnChanges, SimpleChanges, inject, DestroyRef, ChangeDetectorRef } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnChanges, SimpleChanges, inject, DestroyRef, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -41,7 +41,7 @@ import { TotalsCalculatorComponent } from '../totals-calculator/totals-calculato
           <div class="px-6 py-4 border-b border-[var(--gray-200)] flex items-center justify-between">
             <div>
               <h2 class="text-2xl font-bold text-[var(--gray-900)]">
-                {{ editingId ? 'Editar Orçamento' : 'Novo Orçamento' }}
+                {{ editingId() ? 'Editar Orçamento' : 'Novo Orçamento' }}
               </h2>
               <p class="text-sm text-[var(--gray-500)] mt-1">
                 {{ getStepDescription() }}
@@ -66,11 +66,11 @@ import { TotalsCalculatorComponent } from '../totals-calculator/totals-calculato
                     <div
                       class="w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all"
                       [ngClass]="{
-                        'step-active': currentStep >= step.id,
-                        'step-inactive': currentStep < step.id
+                        'step-active': currentStep() >= step.id,
+                        'step-inactive': currentStep() < step.id
                       }"
                     >
-                      @if (currentStep > step.id) {
+                      @if (currentStep() > step.id) {
                         <i class="fas fa-check"></i>
                       } @else {
                         {{ step.id }}
@@ -80,9 +80,9 @@ import { TotalsCalculatorComponent } from '../totals-calculator/totals-calculato
                       <p
                         class="text-sm font-semibold"
                         [ngClass]="{
-                          'step-title-current': currentStep === step.id,
-                          'step-title-completed': currentStep > step.id,
-                          'step-title-pending': currentStep < step.id
+                          'step-title-current': currentStep() === step.id,
+                          'step-title-completed': currentStep() > step.id,
+                          'step-title-pending': currentStep() < step.id
                         }"
                       >
                         {{ step.title }}
@@ -96,8 +96,8 @@ import { TotalsCalculatorComponent } from '../totals-calculator/totals-calculato
                     <div
                       class="flex-1 h-1 mx-4 rounded transition-all"
                       [ngClass]="{
-                        'step-line-active': currentStep > step.id,
-                        'step-line-inactive': currentStep <= step.id
+                        'step-line-active': currentStep() > step.id,
+                        'step-line-inactive': currentStep() <= step.id
                       }"
                     ></div>
                   }
@@ -109,7 +109,7 @@ import { TotalsCalculatorComponent } from '../totals-calculator/totals-calculato
           <!-- Content -->
           <div class="flex-1 overflow-y-auto px-6 py-6">
             <!-- Etapa 1: Dados Gerais -->
-            @if (currentStep === 1) {
+            @if (currentStep() === 1) {
               <div class="space-y-5 max-w-3xl">
                 <!-- Cliente -->
                 <div>
@@ -122,7 +122,7 @@ import { TotalsCalculatorComponent } from '../totals-calculator/totals-calculato
                     required
                   >
                     <option value="">Selecione um cliente...</option>
-                    @for (cliente of clientes; track cliente.id) {
+                    @for (cliente of clientes(); track cliente.id) {
                       <option [value]="cliente.id">{{ cliente.nome }}</option>
                     }
                   </select>
@@ -169,7 +169,7 @@ import { TotalsCalculatorComponent } from '../totals-calculator/totals-calculato
             }
 
             <!-- Etapa 2: Inclusão de Itens -->
-            @if (currentStep === 2) {
+            @if (currentStep() === 2) {
               <div class="space-y-6">
                 <!-- Buscar Produto e Selecionar SKU -->
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -180,7 +180,7 @@ import { TotalsCalculatorComponent } from '../totals-calculator/totals-calculato
                   </div>
                   <div>
                     <app-sku-selector
-                      [produto]="selectedProduto"
+                      [produto]="selectedProduto()"
                       [existingSkus]="getExistingSkus()"
                       (itemAdded)="onItemAdded($event)"
                     ></app-sku-selector>
@@ -199,7 +199,7 @@ import { TotalsCalculatorComponent } from '../totals-calculator/totals-calculato
             }
 
             <!-- Etapa 3: Totais e Condições -->
-            @if (currentStep === 3) {
+            @if (currentStep() === 3) {
               <div class="max-w-3xl">
                 <!-- Tabela de Itens (visualização) -->
                 <div class="mb-6">
@@ -227,7 +227,7 @@ import { TotalsCalculatorComponent } from '../totals-calculator/totals-calculato
             <div class="flex items-center justify-between">
               <!-- Botões de Navegação -->
               <div class="flex items-center gap-3">
-                @if (currentStep > 1) {
+                @if (currentStep() > 1) {
                   <button
                     type="button"
                     (click)="previousStep()"
@@ -249,7 +249,7 @@ import { TotalsCalculatorComponent } from '../totals-calculator/totals-calculato
                   Cancelar
                 </button>
 
-                @if (currentStep < 3) {
+                @if (currentStep() < 3) {
                   <button
                     type="button"
                     (click)="nextStep()"
@@ -263,10 +263,10 @@ import { TotalsCalculatorComponent } from '../totals-calculator/totals-calculato
                   <button
                     type="button"
                     (click)="salvarRascunho()"
-                    [disabled]="isSaving || !isFormValid()"
+                    [disabled]="isSaving() || !isFormValid()"
                     class="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    @if (isSaving) {
+                    @if (isSaving()) {
                       <i class="fas fa-spinner fa-spin mr-2"></i>
                     } @else {
                       <i class="fas fa-save mr-2"></i>
@@ -277,10 +277,10 @@ import { TotalsCalculatorComponent } from '../totals-calculator/totals-calculato
                   <button
                     type="button"
                     (click)="enviarOrcamento()"
-                    [disabled]="isSaving || !isFormValid()"
+                    [disabled]="isSaving() || !isFormValid()"
                     class="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    @if (isSaving) {
+                    @if (isSaving()) {
                       <i class="fas fa-spinner fa-spin mr-2"></i>
                     } @else {
                       <i class="fas fa-paper-plane mr-2"></i>
@@ -342,18 +342,18 @@ export class OrcamentoModalComponent implements OnChanges {
   @Output() close = new EventEmitter<void>();
   @Output() saved = new EventEmitter<void>();
 
-  currentStep = 1;
-  isSaving = false;
-  editingId: string | null = null;
+  // Signals para estado reativo
+  readonly currentStep = signal(1);
+  readonly isSaving = signal(false);
+  readonly editingId = signal<string | null>(null);
+  readonly clientes = signal<(Cliente & { id: string })[]>([]);
+  readonly selectedProduto = signal<(Produto & { id: string }) | null>(null);
 
   steps = [
     { id: 1, title: 'Dados Gerais', subtitle: 'Cliente e condições' },
     { id: 2, title: 'Itens', subtitle: 'Produtos e SKUs' },
     { id: 3, title: 'Totais', subtitle: 'Valores finais' }
   ];
-
-  clientes: (Cliente & { id: string })[] = [];
-  selectedProduto: (Produto & { id: string }) | null = null;
 
   formData: Orcamento = {
     status: 'RASCUNHO',
@@ -366,16 +366,13 @@ export class OrcamentoModalComponent implements OnChanges {
     },
     itens: []
   };
-    constructor(
-    private readonly cdr: ChangeDetectorRef
-  ){}
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['isOpen'] && this.isOpen) {
       this.loadClientes();
 
       if (this.editingOrcamento) {
-        this.editingId = this.editingOrcamento.id!;
+        this.editingId.set(this.editingOrcamento.id!);
         this.formData = { ...this.editingOrcamento };
       } else {
         this.resetForm();
@@ -387,14 +384,12 @@ export class OrcamentoModalComponent implements OnChanges {
     this.firebaseService.getCollection$<Cliente>('clientes')
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(clientes => {
-        this.clientes = clientes;
-        this.cdr.detectChanges();
-
+        this.clientes.set(clientes);
       });
   }
 
   getStepDescription(): string {
-    switch (this.currentStep) {
+    switch (this.currentStep()) {
       case 1:
         return 'Informe os dados básicos do orçamento';
       case 2:
@@ -407,19 +402,19 @@ export class OrcamentoModalComponent implements OnChanges {
   }
 
   nextStep(): void {
-    if (this.canProceedToNextStep() && this.currentStep < 3) {
-      this.currentStep++;
+    if (this.canProceedToNextStep() && this.currentStep() < 3) {
+      this.currentStep.update(step => step + 1);
     }
   }
 
   previousStep(): void {
-    if (this.currentStep > 1) {
-      this.currentStep--;
+    if (this.currentStep() > 1) {
+      this.currentStep.update(step => step - 1);
     }
   }
 
   canProceedToNextStep(): boolean {
-    switch (this.currentStep) {
+    switch (this.currentStep()) {
       case 1:
         return this.formData.clienteId !== '';
       case 2:
@@ -432,7 +427,7 @@ export class OrcamentoModalComponent implements OnChanges {
   }
 
   onProdutoSelected(produto: Produto & { id: string }): void {
-    this.selectedProduto = produto;
+    this.selectedProduto.set(produto);
   }
 
   onItemAdded(item: OrcamentoItem): void {
@@ -447,7 +442,7 @@ export class OrcamentoModalComponent implements OnChanges {
     this.recalcularTotais();
 
     // Limpar seleção de produto
-    this.selectedProduto = null;
+    this.selectedProduto.set(null);
   }
 
   onItemRemoved(index: number): void {
@@ -483,7 +478,7 @@ export class OrcamentoModalComponent implements OnChanges {
   salvarRascunho(): void {
     if (!this.isFormValid()) return;
 
-    this.isSaving = true;
+    this.isSaving.set(true);
     this.formData.status = 'RASCUNHO';
     this.saveOrcamento();
   }
@@ -491,42 +486,41 @@ export class OrcamentoModalComponent implements OnChanges {
   enviarOrcamento(): void {
     if (!this.isFormValid()) return;
 
-    this.isSaving = true;
+    this.isSaving.set(true);
     this.formData.status = 'ENVIADO';
     this.saveOrcamento();
   }
 
   private saveOrcamento(): void {
     const dataToSave = { ...this.formData };
+    const currentEditingId = this.editingId();
 
-    if (this.editingId) {
-      this.firebaseService.updateDocument$('orcamentos', this.editingId, dataToSave)
+    if (currentEditingId) {
+      this.firebaseService.updateDocument$('orcamentos', currentEditingId, dataToSave)
         .subscribe({
           next: () => {
-            this.isSaving = false;
+            this.isSaving.set(false);
             this.saved.emit();
-             this.cdr.detectChanges();
             this.closeModal();
           },
           error: (error) => {
             console.error('Erro ao atualizar orçamento:', error);
             alert('Erro ao salvar orçamento');
-            this.isSaving = false;
+            this.isSaving.set(false);
           }
         });
     } else {
       this.firebaseService.addDocument$('orcamentos', dataToSave)
         .subscribe({
           next: () => {
-            this.isSaving = false;
+            this.isSaving.set(false);
             this.saved.emit();
-            this.cdr.detectChanges();
             this.closeModal();
           },
           error: (error) => {
             console.error('Erro ao criar orçamento:', error);
             alert('Erro ao salvar orçamento');
-            this.isSaving = false;
+            this.isSaving.set(false);
           }
         });
     }
@@ -538,9 +532,9 @@ export class OrcamentoModalComponent implements OnChanges {
   }
 
   private resetForm(): void {
-    this.currentStep = 1;
-    this.editingId = null;
-    this.selectedProduto = null;
+    this.currentStep.set(1);
+    this.editingId.set(null);
+    this.selectedProduto.set(null);
     this.formData = {
       status: 'RASCUNHO',
       clienteId: '',
@@ -554,4 +548,3 @@ export class OrcamentoModalComponent implements OnChanges {
     };
   }
 }
-

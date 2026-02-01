@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, DestroyRef, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, inject, DestroyRef, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -21,19 +21,17 @@ export class ClientesComponent implements OnInit {
   private firebaseService = inject(FirebaseService);
   private destroyRef = inject(DestroyRef);
 
-  clientes: (Cliente & { id: string })[] = [];
-
-  isModalOpen = false;
-  isDeleteModalOpen = false;
-  isSuccessModalOpen = false;
-  successMessage = '';
-
-  isLoading = true;
-  isSaving = false;
-
-  editingId: string | null = null;
-  deleteId: string | null = null;
-  deleteName = '';
+  // Signals para estado reativo
+  readonly clientes = signal<(Cliente & { id: string })[]>([]);
+  readonly isModalOpen = signal(false);
+  readonly isDeleteModalOpen = signal(false);
+  readonly isSuccessModalOpen = signal(false);
+  readonly successMessage = signal('');
+  readonly isLoading = signal(true);
+  readonly isSaving = signal(false);
+  readonly editingId = signal<string | null>(null);
+  readonly deleteId = signal<string | null>(null);
+  readonly deleteName = signal('');
 
   estados = [
     { sigla: 'AC', nome: 'Acre' },
@@ -76,11 +74,6 @@ export class ClientesComponent implements OnInit {
     estado: ''
   };
 
-
-  constructor(
-    private readonly cdr: ChangeDetectorRef
-  ){}
-
   ngOnInit(): void {
     this.loadClientes();
   }
@@ -90,56 +83,55 @@ export class ClientesComponent implements OnInit {
       takeUntilDestroyed(this.destroyRef)
     ).subscribe({
       next: (data) => {
-        this.clientes = data;
-        this.isLoading = false;
-        this.cdr.detectChanges();
+        this.clientes.set(data);
+        this.isLoading.set(false);
       },
       error: (error) => {
         console.error('Erro ao carregar clientes:', error);
-        this.isLoading = false;
-        this.cdr.detectChanges();
+        this.isLoading.set(false);
       }
     });
   }
 
   openModal(cliente?: Cliente & { id: string }): void {
     if (cliente) {
-      this.editingId = cliente.id;
+      this.editingId.set(cliente.id);
       this.formData = { ...cliente };
     } else {
-      this.editingId = null;
+      this.editingId.set(null);
       this.formData = { nome: '', documento: '', telefone: '', email: '', rua: '', cep: '', cidade: '', estado: '' };
     }
-    this.isModalOpen = true;
+    this.isModalOpen.set(true);
   }
 
   closeModal(): void {
-    this.isModalOpen = false;
-    this.editingId = null;
+    this.isModalOpen.set(false);
+    this.editingId.set(null);
     this.formData = { nome: '', documento: '', telefone: '', email: '', rua: '', cep: '', cidade: '', estado: '' };
   }
 
   saveCliente(): void {
-    this.isSaving = true;
-    const isEditing = !!this.editingId;
+    this.isSaving.set(true);
+    const isEditing = !!this.editingId();
     const message = isEditing
       ? `Cliente "${this.formData.nome}" atualizado com sucesso!`
       : `"${this.formData.nome}" cadastrado com sucesso!`;
 
     const handleSuccess = () => {
-      this.isSaving = false;
+      this.isSaving.set(false);
       this.showSuccess(message);
       this.closeModal();
     };
 
     const handleError = (error: Error) => {
-      this.isSaving = false;
+      this.isSaving.set(false);
       console.error('Erro ao salvar:', error);
       alert('Erro ao salvar cliente');
     };
 
-    if (isEditing && this.editingId) {
-      this.firebaseService.updateDocument$('clientes', this.editingId, this.formData).subscribe({
+    const currentEditingId = this.editingId();
+    if (isEditing && currentEditingId) {
+      this.firebaseService.updateDocument$('clientes', currentEditingId, this.formData).subscribe({
         next: handleSuccess,
         error: handleError
       });
@@ -152,31 +144,30 @@ export class ClientesComponent implements OnInit {
   }
 
   openDeleteModal(cliente: Cliente & { id: string }): void {
-    this.deleteId = cliente.id;
-    this.deleteName = cliente.nome;
-    this.isDeleteModalOpen = true;
+    this.deleteId.set(cliente.id);
+    this.deleteName.set(cliente.nome);
+    this.isDeleteModalOpen.set(true);
   }
 
   closeDeleteModal(): void {
-    this.isDeleteModalOpen = false;
-    this.deleteId = null;
-    this.deleteName = '';
+    this.isDeleteModalOpen.set(false);
+    this.deleteId.set(null);
+    this.deleteName.set('');
   }
 
   confirmDelete(): void {
-    if (this.deleteId) {
-      this.isSaving = true;
-      this.firebaseService.deleteDocument$('clientes', this.deleteId).pipe(
-        finalize(() => this.isSaving = false)
+    const currentDeleteId = this.deleteId();
+    if (currentDeleteId) {
+      this.isSaving.set(true);
+      this.firebaseService.deleteDocument$('clientes', currentDeleteId).pipe(
+        finalize(() => this.isSaving.set(false))
       ).subscribe({
         next: () => {
           this.closeDeleteModal();
-          this.cdr.detectChanges();
           this.showSuccess('Registro excluído com sucesso!');
         },
         error: (error) => {
           console.error('Erro ao excluir:', error);
-          this.cdr.detectChanges();
           alert('Erro ao excluir cliente');
         }
       });
@@ -184,12 +175,12 @@ export class ClientesComponent implements OnInit {
   }
 
   showSuccess(message: string): void {
-    this.successMessage = message;
-    this.isSuccessModalOpen = true;
+    this.successMessage.set(message);
+    this.isSuccessModalOpen.set(true);
   }
 
   closeSuccessModal(): void {
-    this.isSuccessModalOpen = false;
-    this.successMessage = '';
+    this.isSuccessModalOpen.set(false);
+    this.successMessage.set('');
   }
 }

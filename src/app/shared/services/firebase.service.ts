@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, signal, computed } from '@angular/core';
 import { initializeApp } from 'firebase/app';
 import {
   getAuth,
@@ -23,7 +23,6 @@ import {
   DocumentData
 } from 'firebase/firestore';
 import { 
-  BehaviorSubject, 
   Observable, 
   from, 
   of,
@@ -53,45 +52,57 @@ export class FirebaseService {
   private auth = getAuth(this.app);
   private db = getFirestore(this.app);
   
-  private currentUserSubject = new BehaviorSubject<User | null>(null);
-  private authInitializedSubject = new BehaviorSubject<boolean>(false);
+  // Signals para estado de autenticação
+  readonly currentUser = signal<User | null>(null);
+  readonly authInitialized = signal<boolean>(false);
   
-  public currentUser$ = this.currentUserSubject.asObservable();
-  public authInitialized$ = this.authInitializedSubject.asObservable();
-  
-  private currentUserUid: string | null = null;
+  // Computed signals
+  readonly isAuthenticated = computed(() => this.currentUser() !== null);
+  readonly currentUserId = computed(() => this.currentUser()?.uid || null);
 
   constructor() {
     onAuthStateChanged(this.auth, (user) => {
-      this.currentUserSubject.next(user);
-      this.currentUserUid = user?.uid || null;
-      if (!this.authInitializedSubject.value) {
-        this.authInitializedSubject.next(true);
+      this.currentUser.set(user);
+      if (!this.authInitialized()) {
+        this.authInitialized.set(true);
       }
     });
   }
 
   private waitForAuth$(): Observable<string> {
-    return this.authInitialized$.pipe(
-      filter(initialized => initialized),
-      take(1),
-      switchMap(() => {
-        if (!this.currentUserUid) {
-          return throwError(() => new Error('User not authenticated'));
+    return new Observable<string>(observer => {
+      // Check if already initialized
+      if (this.authInitialized()) {
+        const uid = this.currentUserId();
+        if (uid) {
+          observer.next(uid);
+          observer.complete();
+        } else {
+          observer.error(new Error('User not authenticated'));
         }
-        return of(this.currentUserUid);
-      })
-    );
+        return;
+      }
+
+      // Wait for auth to initialize
+      const checkAuth = () => {
+        if (this.authInitialized()) {
+          const uid = this.currentUserId();
+          if (uid) {
+            observer.next(uid);
+            observer.complete();
+          } else {
+            observer.error(new Error('User not authenticated'));
+          }
+        } else {
+          setTimeout(checkAuth, 50);
+        }
+      };
+      checkAuth();
+    });
   }
 
   get userId(): string | null {
-    return this.currentUserUid;
-  }
-
-  get userId$(): Observable<string | null> {
-    return this.currentUser$.pipe(
-      map(user => user?.uid || null)
-    );
+    return this.currentUserId();
   }
 
   login(email: string, password: string): Observable<void> {
@@ -117,16 +128,6 @@ export class FirebaseService {
   logout(): Observable<void> {
     return from(signOut(this.auth)).pipe(
       catchError(error => throwError(() => error))
-    );
-  }
-
-  isAuthenticated(): boolean {
-    return this.auth.currentUser !== null;
-  }
-
-  isAuthenticated$(): Observable<boolean> {
-    return this.currentUser$.pipe(
-      map(user => user !== null)
     );
   }
 
@@ -166,7 +167,7 @@ export class FirebaseService {
         return from(addDoc(tenantCollection, {
           ...data,
           criadoEm: serverTimestamp(),
-          userId: this.currentUserUid
+          userId: this.currentUserId()
         }));
       }),
       map(docRef => docRef.id),
@@ -180,7 +181,7 @@ export class FirebaseService {
         const docRef = doc(tenantCollection, docId);
         return from(updateDoc(docRef, {
           ...data,
-          userId: this.currentUserUid
+          userId: this.currentUserId()
         }));
       }),
       catchError(error => throwError(() => error))

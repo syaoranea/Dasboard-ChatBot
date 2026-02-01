@@ -19,8 +19,8 @@
         <div class="relative">
           <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
           <input 
-            [(ngModel)]="searchTerm"
-            (ngModelChange)="onSearchChange()"
+            [value]="searchTerm()"
+            (input)="onSearchChange($event)"
             type="text" 
             placeholder="Buscar por nome, descrição ou marca..."
             class="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
@@ -30,16 +30,16 @@
       <!-- Filtro Categoria -->
       <div class="flex gap-2">
         <select 
-          [(ngModel)]="filtroCategoria"
-          (ngModelChange)="onCategoriaChange()"
+          [value]="filtroCategoria()"
+          (change)="onCategoriaChange($event)"
           class="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
           <option value="">Todas as categorias</option>
-          @for (categoria of categorias; track categoria.id) {
+          @for (categoria of categorias(); track categoria.id) {
             <option [value]="categoria.id">{{ categoria.nome }}</option>
           }
         </select>
         
-        @if (searchTerm || filtroCategoria) {
+        @if (searchTerm() || filtroCategoria()) {
           <button 
             (click)="limparFiltros()"
             class="px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all"
@@ -56,7 +56,7 @@
 <!-- Table Card -->
 <div class="card overflow-hidden">
   <!-- Loading State -->
-  @if (isLoading) {
+  @if (isLoading()) {
     <app-loading type="skeleton" message="Carregando produtos..."></app-loading>
   } @else {
     <div class="overflow-x-auto">
@@ -73,7 +73,7 @@
           </tr>
         </thead>
         <tbody class="divide-y divide-[var(--gray-100)]">
-        @for (produto of produtosComDados; track produto.id) {
+        @for (produto of produtosComDados(); track produto.id) {
           <tr class="hover:bg-[var(--gray-50)] transition-colors">
             
             <!-- Produto -->
@@ -179,7 +179,7 @@
                 <div class="w-20 h-20 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center mb-4">
                   <i class="fas fa-box-open text-3xl text-gray-400"></i>
                 </div>
-                @if (searchTerm || filtroCategoria) {
+                @if (searchTerm() || filtroCategoria()) {
                   <p class="text-gray-600 font-medium">Nenhum produto encontrado</p>
                   <p class="text-sm text-gray-400 mt-1">Tente ajustar os filtros de busca</p>
                   <button 
@@ -202,30 +202,30 @@
 </div>
 
 <!-- Loading Overlay -->
-@if (isSaving) {
+@if (isSaving()) {
   <app-loading type="overlay" message="Processando..."></app-loading>
 }
 
 <!-- Modal de Cadastro/Edição -->
 <app-produto-modal 
-  [isOpen]="isModalOpen"
-  [categorias]="categorias"
-  [produtoId]="editingProdutoId"
+  [isOpen]="isModalOpen()"
+  [categorias]="categorias()"
+  [produtoId]="editingProdutoId()"
   (close)="closeModal()"
   (success)="onModalSuccess($event)">
 </app-produto-modal>
 
 <!-- Modal de Confirmação de Exclusão -->
 <app-confirm-modal 
-  [isOpen]="isDeleteModalOpen" 
-  [message]="'Tem certeza que deseja excluir &quot;' + deleteName + '&quot; e todos os seus SKUs? Esta ação não pode ser desfeita.'" 
+  [isOpen]="isDeleteModalOpen()" 
+  [message]="'Tem certeza que deseja excluir &quot;' + deleteName() + '&quot; e todos os seus SKUs? Esta ação não pode ser desfeita.'" 
   (confirm)="confirmDelete()" 
   (cancel)="closeDeleteModal()">
 </app-confirm-modal>
 
 <!-- Modal de Sucesso -->
 <app-success-modal 
-  [isOpen]="isSuccessModalOpen" 
-  [message]="successMessage" 
+  [isOpen]="isSuccessModalOpen()" 
+  [message]="successMessage()" 
   (close)="closeSuccessModal()">
 </app-success-modal>

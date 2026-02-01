@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, OnChanges, SimpleChanges, inject, DestroyRef, ChangeDetectorRef } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnChanges, SimpleChanges, inject, DestroyRef, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -20,12 +20,12 @@ import { Produto, SKU, OrcamentoItem } from '../../../../core/models/interfaces'
           Selecionar SKU de "{{ produto.nome }}"
         </label>
 
-        @if (isLoading) {
+        @if (isLoading()) {
           <div class="text-center py-8 text-[var(--gray-500)]">
             <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
             <p>Carregando SKUs disponíveis...
           </div>
-        } @else if (skus.length === 0) {
+        } @else if (skus().length === 0) {
           <div class="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-center">
             <i class="fas fa-exclamation-triangle text-yellow-600 text-2xl mb-2"></i>
             <p class="text-yellow-800 font-medium">Nenhum SKU disponível</p>
@@ -34,13 +34,13 @@ import { Produto, SKU, OrcamentoItem } from '../../../../core/models/interfaces'
         } @else {
           <!-- Grid de SKUs -->
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-96 overflow-y-auto">
-            @for (sku of skus; track sku.id) {
+            @for (sku of skus(); track sku.id) {
               <div
                 class="border rounded-lg p-4 cursor-pointer transition-all"
-                [class.border-[var(--gray-200)]="selectedSku?.id !== sku.id"
-                [class.bg-white]="selectedSku?.id !== sku.id"
-                [class.border-[var(--primary-500)]="selectedSku?.id === sku.id"
-                [class.bg-[var(--primary-50)]="selectedSku?.id === sku.id"
+                [class.border-[var(--gray-200)]="selectedSku()?.id !== sku.id"
+                [class.bg-white]="selectedSku()?.id !== sku.id"
+                [class.border-[var(--primary-500)]="selectedSku()?.id === sku.id"
+                [class.bg-[var(--primary-50)]="selectedSku()?.id === sku.id"
                 [class.opacity-50]="!sku.ativo || (sku.estoque || 0) <= 0"
                 [class.cursor-not-allowed]="!sku.ativo || (sku.estoque || 0) <= 0"
                 (click)="selectSku(sku)"
@@ -53,7 +53,7 @@ import { Produto, SKU, OrcamentoItem } from '../../../../core/models/interfaces'
                       {{ formatarAtributos(sku.atributos) }}
                     </p>
                   </div>
-                  @if (selectedSku?.id === sku.id) {
+                  @if (selectedSku()?.id === sku.id) {
                     <i class="fas fa-check-circle text-[var(--primary-600)] text-xl"></i>
                   }
                 </div>
@@ -90,7 +90,7 @@ import { Produto, SKU, OrcamentoItem } from '../../../../core/models/interfaces'
           </div>
 
           <!-- Quantidade -->
-          @if (selectedSku) {
+          @if (selectedSku()) {
             <div class="mt-4 p-4 bg-[var(--primary-50)] border border-[var(--primary-200)] rounded-lg">
               <div class="flex items-center gap-4">
                 <div class="flex-1">
@@ -99,17 +99,17 @@ import { Produto, SKU, OrcamentoItem } from '../../../../core/models/interfaces'
                   </label>
                   <input
                     type="number"
-                    [(ngModel)]="quantidade"
-                    (ngModelChange)="onQuantidadeChange()"
+                    [ngModel]="quantidade()"
+                    (ngModelChange)="onQuantidadeChange($event)"
                     min="1"
-                    [max]="selectedSku.estoque"
+                    [max]="selectedSku()!.estoque"
                     class="w-full border border-[var(--gray-300)] px-4 py-2.5 rounded-lg text-[var(--gray-900)]"
                     placeholder="Digite a quantidade"
                   />
-                  @if (quantidade > (selectedSku.estoque || 0)) {
+                  @if (quantidade() > (selectedSku()!.estoque || 0)) {
                     <p class="text-xs text-red-600 mt-1">
                       <i class="fas fa-exclamation-triangle mr-1"></i>
-                      Quantidade maior que estoque disponível ({{ selectedSku.estoque }})
+                      Quantidade maior que estoque disponível ({{ selectedSku()!.estoque }})
                     </p>
                   }
                 </div>
@@ -120,11 +120,11 @@ import { Produto, SKU, OrcamentoItem } from '../../../../core/models/interfaces'
                   </label>
                   <input
                     type="number"
-                    [(ngModel)]="desconto"
-                    (ngModelChange)="onQuantidadeChange()"
+                    [ngModel]="desconto()"
+                    (ngModelChange)="onDescontoChange($event)"
                     min="0"
                     step="0.01"
-                    [max]="selectedSku.preco * quantidade"
+                    [max]="selectedSku()!.preco * quantidade()"
                     class="w-full border border-[var(--gray-300)] px-4 py-2.5 rounded-lg text-[var(--gray-900)]"
                     placeholder="0.00"
                   />
@@ -165,45 +165,37 @@ export class SkuSelectorComponent implements OnChanges {
   @Input() existingSkus: string[] = []; // SKUs já adicionados ao orçamento
   @Output() itemAdded = new EventEmitter<OrcamentoItem>();
 
-  skus: (SKU & { id: string })[] = [];
-  selectedSku: (SKU & { id: string }) | null = null;
-  quantidade = 1;
-  desconto = 0;
-  isLoading = true;
-
-  constructor(
-    private readonly cdr: ChangeDetectorRef
-  ){}
+  // Signals para estado reativo
+  readonly skus = signal<(SKU & { id: string })[]>([]);
+  readonly selectedSku = signal<(SKU & { id: string }) | null>(null);
+  readonly quantidade = signal(1);
+  readonly desconto = signal(0);
+  readonly isLoading = signal(true);
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['produto'] && this.produto) {
       this.loadSkus();
     }
-    this.cdr.detectChanges();
   }
-
 
   private loadSkus(): void {
     if (!this.produto?.id) return;
 
-    this.isLoading = true;
+    this.isLoading.set(true);
     this.produtoSkuService.getSKUsByProduto$(this.produto.id)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (skus) => {
           // Filtrar SKUs ativos e remover os já adicionados
-          this.skus = skus.filter(sku =>
+          this.skus.set(skus.filter(sku =>
             sku.ativo && !this.existingSkus.includes(sku.sku)
-          );
-          console.log(this.skus)
-          this.cdr.detectChanges();
-          this.isLoading = false;
+          ));
+          console.log(this.skus());
+          this.isLoading.set(false);
         },
         error: (error) => {
           console.error('Erro ao carregar SKUs:', error);
-          this.isLoading = false;
-          this.cdr.detectChanges();
-
+          this.isLoading.set(false);
         }
       });
   }
@@ -213,56 +205,63 @@ export class SkuSelectorComponent implements OnChanges {
       return;
     }
 
-    this.selectedSku = sku;
-    this.quantidade = 1;
-    this.desconto = 0;
-     this.cdr.detectChanges();
-
+    this.selectedSku.set(sku);
+    this.quantidade.set(1);
+    this.desconto.set(0);
   }
 
   formatarAtributos(atributos: { [key: string]: string }): string {
     return this.produtoSkuService.formatarAtributosSKU(atributos);
   }
 
-  onQuantidadeChange(): void {
+  onQuantidadeChange(value: number): void {
     // Validar quantidade
-    if (this.quantidade < 1) {
-      this.quantidade = 1;
+    if (value < 1) {
+      this.quantidade.set(1);
+    } else {
+      this.quantidade.set(value);
     }
   }
 
+  onDescontoChange(value: number): void {
+    this.desconto.set(value);
+  }
+
   calcularTotal(): number {
-    if (!this.selectedSku) return 0;
-    return (this.selectedSku.preco * this.quantidade) - this.desconto;
+    const sku = this.selectedSku();
+    if (!sku) return 0;
+    return (sku.preco * this.quantidade()) - this.desconto();
   }
 
   isValid(): boolean {
-    if (!this.selectedSku) return false;
-    if (this.quantidade < 1) return false;
-    if (this.quantidade > (this.selectedSku.estoque || 0)) return false;
-    if (this.desconto < 0) return false;
-    if (this.desconto > (this.selectedSku.preco * this.quantidade)) return false;
+    const sku = this.selectedSku();
+    if (!sku) return false;
+    if (this.quantidade() < 1) return false;
+    if (this.quantidade() > (sku.estoque || 0)) return false;
+    if (this.desconto() < 0) return false;
+    if (this.desconto() > (sku.preco * this.quantidade())) return false;
     return true;
   }
 
   adicionarItem(): void {
-    if (!this.isValid() || !this.selectedSku || !this.produto) return;
+    const sku = this.selectedSku();
+    if (!this.isValid() || !sku || !this.produto) return;
 
     // Criar descrição completa
-    const atributosFormatados = this.formatarAtributos(this.selectedSku.atributos);
+    const atributosFormatados = this.formatarAtributos(sku.atributos);
     const descricao = `${this.produto.nome} - ${atributosFormatados}`;
 
     // Criar item do orçamento com snapshot
     const item: OrcamentoItem = {
-      sku: this.selectedSku.sku,
+      sku: sku.sku,
       produtoId: this.produto.id!,
       descricao,
-      quantidade: this.quantidade,
-      precoUnitario: this.selectedSku.preco,
-      desconto: this.desconto,
+      quantidade: this.quantidade(),
+      precoUnitario: sku.preco,
+      desconto: this.desconto(),
       total: this.calcularTotal(),
       snapshot: {
-        atributos: { ...this.selectedSku.atributos },
+        atributos: { ...sku.atributos },
         produtoNome: this.produto.nome
       }
     };
@@ -270,8 +269,8 @@ export class SkuSelectorComponent implements OnChanges {
     this.itemAdded.emit(item);
 
     // Reset
-    this.selectedSku = null;
-    this.quantidade = 1;
-    this.desconto = 0;
+    this.selectedSku.set(null);
+    this.quantidade.set(1);
+    this.desconto.set(0);
   }
 }

@@ -1,8 +1,8 @@
-import { Component, OnInit, inject, DestroyRef, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, inject, DestroyRef, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { combineLatest, map, catchError, of } from 'rxjs';
+import { combineLatest, catchError, of } from 'rxjs';
 import { FirebaseService } from '../../shared/services/firebase.service';
 import { LoadingComponent } from '../../shared/components/loading/loading.component';
 
@@ -17,15 +17,15 @@ export class DashboardComponent implements OnInit {
   private firebaseService = inject(FirebaseService);
   private destroyRef = inject(DestroyRef);
 
-  isLoading = true;
-
-  counts = {
+  // Signals para estado reativo
+  readonly isLoading = signal(true);
+  readonly counts = signal({
     usuarios: 0,
     produtos: 0,
     clientes: 0,
     orcamentos: 0,
     categorias: 0
-  };
+  });
 
   cards = [
     { id: 'usuarios', label: 'Usuários', icon: 'fa-users', bgColor: 'bg-blue-100', textColor: 'text-blue-600' },
@@ -34,11 +34,6 @@ export class DashboardComponent implements OnInit {
     { id: 'orcamentos', label: 'Orçamentos', icon: 'fa-calculator', bgColor: 'bg-amber-100', textColor: 'text-amber-600' },
     { id: 'categorias', label: 'Categorias', icon: 'fa-tags', bgColor: 'bg-indigo-100', textColor: 'text-indigo-600' }
   ];
-
-
-  constructor(
-    private readonly cdr: ChangeDetectorRef
-  ){}
 
   ngOnInit(): void {
     this.loadCollections();
@@ -52,30 +47,26 @@ export class DashboardComponent implements OnInit {
       orcamentos: this.firebaseService.getCollection$<unknown>('orcamentos').pipe(catchError(() => of([]))),
       categorias: this.firebaseService.getCollection$<unknown>('categorias').pipe(catchError(() => of([])))
     }).pipe(
-      map(data => ({
-        usuarios: data.usuarios.length,
-        produtos: data.produtos.length,
-        clientes: data.clientes.length,
-        orcamentos: data.orcamentos.length,
-        categorias: data.categorias.length
-      })),
       takeUntilDestroyed(this.destroyRef)
     ).subscribe({
-      next: (counts) => {
-        this.counts = counts;
-        this.isLoading = false;
-        this.cdr.detectChanges();
-
+      next: (data) => {
+        this.counts.set({
+          usuarios: data.usuarios.length,
+          produtos: data.produtos.length,
+          clientes: data.clientes.length,
+          orcamentos: data.orcamentos.length,
+          categorias: data.categorias.length
+        });
+        this.isLoading.set(false);
       },
       error: (error) => {
         console.error('Erro ao carregar dados do dashboard:', error);
-        this.isLoading = false;
-        this.cdr.detectChanges();
+        this.isLoading.set(false);
       }
     });
   }
 
   getCount(id: string): number {
-    return this.counts[id as keyof typeof this.counts] || 0;
+    return this.counts()[id as keyof ReturnType<typeof this.counts>] || 0;
   }
 }
