@@ -1,0 +1,111 @@
+<!-- Page Header -->
+<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+  <div>
+    <h1 class="text-xl font-bold text-[var(--gray-900)]">Dados da Empresa</h1>
+    <p class="text-sm text-[var(--gray-500)] mt-1">Configure as informacoes da sua empresa</p>
+  </div>
+</div>
+
+<!-- Form Card -->
+<div class="card">
+  @if (isLoading) {
+    <app-loading type="skeleton" message="Carregando dados da empresa..."></app-loading>
+  } @else {
+    <form (ngSubmit)="saveEmpresa()" class="p-6 space-y-6">
+      <!-- Informacoes Basicas -->
+      <div>
+        <h2 class="text-lg font-semibold text-[var(--gray-800)] mb-4 flex items-center gap-2">
+          <i class="fas fa-building text-[var(--primary-500)]"></i>
+          Informacoes Basicas
+        </h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="sm:col-span-2">
+            <label class="block text-sm font-medium text-[var(--gray-700)] mb-1.5">Nome da Empresa *</label>
+            <input [(ngModel)]="formData.nome" name="nome" placeholder="Nome da empresa" 
+                   class="w-full border border-[var(--gray-300)] px-4 py-2.5 rounded-lg text-[var(--gray-900)] placeholder-[var(--gray-400)] focus:ring-2 focus:ring-[var(--primary-500)] focus:border-[var(--primary-500)]" required>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-[var(--gray-700)] mb-1.5">CNPJ *</label>
+            <input [ngModel]="formData.cnpj" (input)="formatCNPJ($event)" name="cnpj" placeholder="00.000.000/0000-00" 
+                   class="w-full border border-[var(--gray-300)] px-4 py-2.5 rounded-lg text-[var(--gray-900)] placeholder-[var(--gray-400)] focus:ring-2 focus:ring-[var(--primary-500)] focus:border-[var(--primary-500)]" required>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-[var(--gray-700)] mb-1.5">Telefone *</label>
+            <input [ngModel]="formData.telefone" (input)="formatTelefone($event)" name="telefone" placeholder="(11) 99999-9999" 
+                   class="w-full border border-[var(--gray-300)] px-4 py-2.5 rounded-lg text-[var(--gray-900)] placeholder-[var(--gray-400)] focus:ring-2 focus:ring-[var(--primary-500)] focus:border-[var(--primary-500)]" required>
+          </div>
+        </div>
+      </div>
+
+      <!-- Endereco -->
+      <div class="pt-6 border-t border-[var(--gray-200)]">
+        <h2 class="text-lg font-semibold text-[var(--gray-800)] mb-4 flex items-center gap-2">
+          <i class="fas fa-map-marker-alt text-[var(--primary-500)]"></i>
+          Endereco
+        </h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-[var(--gray-700)] mb-1.5">CEP</label>
+            <input [ngModel]="formData.cep" (input)="formatCEP($event)" name="cep" placeholder="00000-000" 
+                   class="w-full border border-[var(--gray-300)] px-4 py-2.5 rounded-lg text-[var(--gray-900)] placeholder-[var(--gray-400)] focus:ring-2 focus:ring-[var(--primary-500)] focus:border-[var(--primary-500)]">
+          </div>
+          <div class="sm:col-span-2">
+            <label class="block text-sm font-medium text-[var(--gray-700)] mb-1.5">Rua</label>
+            <input [(ngModel)]="formData.rua" name="rua" placeholder="Nome da rua" 
+                   class="w-full border border-[var(--gray-300)] px-4 py-2.5 rounded-lg text-[var(--gray-900)] placeholder-[var(--gray-400)] focus:ring-2 focus:ring-[var(--primary-500)] focus:border-[var(--primary-500)]">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-[var(--gray-700)] mb-1.5">Numero</label>
+            <input [(ngModel)]="formData.numero" name="numero" placeholder="123" 
+                   class="w-full border border-[var(--gray-300)] px-4 py-2.5 rounded-lg text-[var(--gray-900)] placeholder-[var(--gray-400)] focus:ring-2 focus:ring-[var(--primary-500)] focus:border-[var(--primary-500)]">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-[var(--gray-700)] mb-1.5">Complemento</label>
+            <input [(ngModel)]="formData.complemento" name="complemento" placeholder="Sala 101" 
+                   class="w-full border border-[var(--gray-300)] px-4 py-2.5 rounded-lg text-[var(--gray-900)] placeholder-[var(--gray-400)] focus:ring-2 focus:ring-[var(--primary-500)] focus:border-[var(--primary-500)]">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-[var(--gray-700)] mb-1.5">Bairro</label>
+            <input [(ngModel)]="formData.bairro" name="bairro" placeholder="Centro" 
+                   class="w-full border border-[var(--gray-300)] px-4 py-2.5 rounded-lg text-[var(--gray-900)] placeholder-[var(--gray-400)] focus:ring-2 focus:ring-[var(--primary-500)] focus:border-[var(--primary-500)]">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-[var(--gray-700)] mb-1.5">Cidade</label>
+            <input [(ngModel)]="formData.cidade" name="cidade" placeholder="Sao Paulo" 
+                   class="w-full border border-[var(--gray-300)] px-4 py-2.5 rounded-lg text-[var(--gray-900)] placeholder-[var(--gray-400)] focus:ring-2 focus:ring-[var(--primary-500)] focus:border-[var(--primary-500)]">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-[var(--gray-700)] mb-1.5">Estado</label>
+            <select [(ngModel)]="formData.estado" name="estado" class="w-full border border-[var(--gray-300)] px-4 py-2.5 rounded-lg text-[var(--gray-900)] focus:ring-2 focus:ring-[var(--primary-500)] focus:border-[var(--primary-500)]">
+              <option value="">Selecione o estado...</option>
+              @for (estado of estados; track estado.sigla) {
+                <option [value]="estado.sigla">{{ estado.nome }}</option>
+              }
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Botoes -->
+      <div class="flex justify-end gap-3 pt-6 border-t border-[var(--gray-200)]">
+        <button type="submit" class="btn-primary" [disabled]="isSaving">
+          @if (isSaving) {
+            <i class="fas fa-spinner fa-spin mr-2"></i>
+            Salvando...
+          } @else {
+            <i class="fas fa-save mr-2"></i>
+            Salvar Dados
+          }
+        </button>
+      </div>
+    </form>
+  }
+</div>
+
+<!-- Loading Overlay para operacoes -->
+@if (isSaving) {
+  <app-loading type="overlay" message="Salvando dados..."></app-loading>
+}
+
+<!-- Modal de Sucesso -->
+<app-success-modal [isOpen]="isSuccessModalOpen" [message]="successMessage" (close)="closeSuccessModal()"></app-success-modal>

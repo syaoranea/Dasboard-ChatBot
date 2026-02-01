@@ -139,3 +139,19 @@ export interface Categoria {
   criadoEm?: any;
   userId?: string;
 }
+
+export interface Empresa {
+  id?: string;
+  nome: string;
+  cnpj: string;
+  telefone: string;
+  rua?: string;
+  numero?: string;
+  complemento?: string;
+  bairro?: string;
+  cidade?: string;
+  estado?: string;
+  cep?: string;
+  criadoEm?: any;
+  userId?: string;
+}
