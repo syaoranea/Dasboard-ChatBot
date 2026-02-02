@@ -12,7 +12,7 @@
 <!-- Table Card -->
 <div class="card overflow-hidden">
   <!-- Loading State -->
-  @if (isLoading) {
+  @if (isLoading()) {
     <app-loading type="skeleton" message="Carregando produtos..."></app-loading>
   } @else {
     <div class="overflow-x-auto">
@@ -27,7 +27,7 @@
           </tr>
         </thead>
         <tbody class="divide-y divide-[var(--gray-100)]">
-        @for (produto of produtos; track produto.id) {
+        @for (produto of produtos(); track produto.id) {
           <tr class="hover:bg-[var(--gray-50)] transition-colors">
             <td class="px-6 py-4">
               <div class="flex items-center gap-3">
@@ -80,12 +80,12 @@
 </div>
 
 <!-- Loading Overlay para operações -->
-@if (isSaving) {
+@if (isSaving()) {
   <app-loading type="overlay" message="Processando..."></app-loading>
 }
 
 <!-- Modal de Cadastro/Edição -->
-<app-modal [isOpen]="isModalOpen" [title]="editingId ? 'Editar Produto' : 'Novo Produto'" (close)="closeModal()">
+<app-modal [isOpen]="isModalOpen()" [title]="editingId() ? 'Editar Produto' : 'Novo Produto'" (close)="closeModal()">
   <form (ngSubmit)="saveProduto()" class="space-y-5">
     <div>
       <label class="block text-sm font-medium text-[var(--gray-700)] mb-1.5">Nome</label>
@@ -96,7 +96,7 @@
       <label class="block text-sm font-medium text-[var(--gray-700)] mb-1.5">Categoria</label>
       <select [(ngModel)]="formData.categoriaId" name="categoriaId" class="w-full border border-[var(--gray-300)] px-4 py-2.5 rounded-lg text-[var(--gray-900)]" required>
         <option value="">Selecione uma categoria...</option>
-        @for (categoria of categorias; track categoria.id) {
+        @for (categoria of categorias(); track categoria.id) {
           <option [value]="categoria.id">{{ categoria.nome }}</option>
         }
       </select>
@@ -115,18 +115,18 @@
       <label class="text-sm font-medium text-[var(--gray-700)]">Variação</label>
       <button type="button" (click)="toggleVariacao()" 
               class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)] focus:ring-offset-2"
-              [class.bg-[var(--primary-600)]]="variacaoAtiva"
-              [class.bg-[var(--gray-300)]]="!variacaoAtiva">
+              [class.bg-[var(--primary-600)]]="variacaoAtiva()"
+              [class.bg-[var(--gray-300)]]="!variacaoAtiva()">
         <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm"
-              [class.translate-x-6]="variacaoAtiva"
-              [class.translate-x-1]="!variacaoAtiva"></span>
+              [class.translate-x-6]="variacaoAtiva()"
+              [class.translate-x-1]="!variacaoAtiva()"></span>
       </button>
-      <span class="text-xs" [class.text-[var(--primary-600)]]="variacaoAtiva" [class.text-[var(--gray-500)]]="!variacaoAtiva">
-        {{ variacaoAtiva ? 'Ligado' : 'Desligado' }}
+      <span class="text-xs" [class.text-[var(--primary-600)]]="variacaoAtiva()" [class.text-[var(--gray-500)]]="!variacaoAtiva()">
+        {{ variacaoAtiva() ? 'Ligado' : 'Desligado' }}
       </span>
     </div>
     
-    @if (!variacaoAtiva) {
+    @if (!variacaoAtiva()) {
       <div>
         <label class="block text-sm font-medium text-[var(--gray-700)] mb-1.5">Estoque</label>
         <input [(ngModel)]="formData.estoque" name="estoque" type="number" placeholder="0" 
@@ -134,7 +134,7 @@
       </div>
     }
     
-    @if (variacaoAtiva) {
+    @if (variacaoAtiva()) {
       <div class="space-y-4 p-4 bg-[var(--gray-50)] rounded-lg border border-[var(--gray-200)]">
         <div>
           <label class="block text-sm font-medium text-[var(--gray-700)] mb-1.5">Tipo de Variação</label>
@@ -173,7 +173,7 @@
 </app-modal>
 
 <!-- Modal de Confirmação de Exclusão -->
-<app-confirm-modal [isOpen]="isDeleteModalOpen" [message]="'Tem certeza que deseja excluir &quot;' + deleteName + '&quot;? Esta ação não pode ser desfeita.'" (confirm)="confirmDelete()" (cancel)="closeDeleteModal()"></app-confirm-modal>
+<app-confirm-modal [isOpen]="isDeleteModalOpen()" [message]="'Tem certeza que deseja excluir &quot;' + deleteName() + '&quot;? Esta ação não pode ser desfeita.'" (confirm)="confirmDelete()" (cancel)="closeDeleteModal()"></app-confirm-modal>
 
 <!-- Modal de Sucesso -->
-<app-success-modal [isOpen]="isSuccessModalOpen" [message]="successMessage" (close)="closeSuccessModal()"></app-success-modal>
+<app-success-modal [isOpen]="isSuccessModalOpen()" [message]="successMessage()" (close)="closeSuccessModal()"></app-success-modal>

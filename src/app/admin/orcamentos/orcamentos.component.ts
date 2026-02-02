@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, DestroyRef, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, inject, DestroyRef, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
@@ -30,24 +30,18 @@ export class OrcamentosComponent implements OnInit {
   private firebaseService = inject(FirebaseService);
   private destroyRef = inject(DestroyRef);
 
-  orcamentos: (Orcamento & { id: string })[] = [];
-  clientes: (Cliente & { id: string })[] = [];
-
-  isModalOpen = false;
-  isDeleteModalOpen = false;
-  isSuccessModalOpen = false;
-  successMessage = '';
-
-  isLoading = true;
-  isSaving = false;
-
-  editingOrcamento: (Orcamento & { id: string }) | null = null;
-  deleteId: string | null = null;
-  deleteName = '';
-
-  constructor(
-    private readonly cdr: ChangeDetectorRef
-  ){}
+  // Signals para estado reativo
+  readonly orcamentos = signal<(Orcamento & { id: string })[]>([]);
+  readonly clientes = signal<(Cliente & { id: string })[]>([]);
+  readonly isModalOpen = signal(false);
+  readonly isDeleteModalOpen = signal(false);
+  readonly isSuccessModalOpen = signal(false);
+  readonly successMessage = signal('');
+  readonly isLoading = signal(true);
+  readonly isSaving = signal(false);
+  readonly editingOrcamento = signal<(Orcamento & { id: string }) | null>(null);
+  readonly deleteId = signal<string | null>(null);
+  readonly deleteName = signal('');
 
   ngOnInit(): void {
     this.loadData();
@@ -59,14 +53,12 @@ export class OrcamentosComponent implements OnInit {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (orcamentos) => {
-          this.orcamentos = orcamentos;
-          this.isLoading = false;
-          this.cdr.detectChanges();
+          this.orcamentos.set(orcamentos);
+          this.isLoading.set(false);
         },
         error: (error) => {
           console.error('Erro ao carregar orçamentos:', error);
-          this.isLoading = false;
-          this.cdr.detectChanges();
+          this.isLoading.set(false);
         }
       });
 
@@ -75,8 +67,7 @@ export class OrcamentosComponent implements OnInit {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (clientes) => {
-          this.clientes = clientes;
-          this.cdr.detectChanges();
+          this.clientes.set(clientes);
         },
         error: (error) => {
           console.error('Erro ao carregar clientes:', error);
@@ -85,71 +76,68 @@ export class OrcamentosComponent implements OnInit {
   }
 
   getClienteNome(clienteId: string): string {
-    const cliente = this.clientes.find(c => c.id === clienteId);
+    const cliente = this.clientes().find(c => c.id === clienteId);
     return cliente ? cliente.nome : 'Cliente não encontrado';
   }
 
   openModal(orcamento?: Orcamento & { id: string }): void {
-    this.editingOrcamento = orcamento || null;
-    this.isModalOpen = true;
+    this.editingOrcamento.set(orcamento || null);
+    this.isModalOpen.set(true);
   }
 
   closeModal(): void {
-    this.isModalOpen = false;
-    this.editingOrcamento = null;
+    this.isModalOpen.set(false);
+    this.editingOrcamento.set(null);
   }
 
   onOrcamentoSaved(): void {
     this.showSuccess(
-      this.editingOrcamento
+      this.editingOrcamento()
         ? 'Orçamento atualizado com sucesso!'
         : 'Orçamento criado com sucesso!'
     );
   }
 
   openDeleteModal(orcamento: Orcamento & { id: string }): void {
-    this.deleteId = orcamento.id;
-    const cliente = this.clientes.find(c => c.id === orcamento.clienteId);
-    this.deleteName = cliente?.nome || 'Cliente desconhecido';
-    this.isDeleteModalOpen = true;
-    this.cdr.detectChanges();
-
+    this.deleteId.set(orcamento.id);
+    const cliente = this.clientes().find(c => c.id === orcamento.clienteId);
+    this.deleteName.set(cliente?.nome || 'Cliente desconhecido');
+    this.isDeleteModalOpen.set(true);
   }
 
   closeDeleteModal(): void {
-    this.isDeleteModalOpen = false;
-    this.deleteId = null;
-    this.deleteName = '';
+    this.isDeleteModalOpen.set(false);
+    this.deleteId.set(null);
+    this.deleteName.set('');
   }
 
   confirmDelete(): void {
-    if (this.deleteId) {
-      this.isSaving = true;
-      this.firebaseService.deleteDocument$('orcamentos', this.deleteId).pipe(
-        finalize(() => this.isSaving = false)
+    const currentDeleteId = this.deleteId();
+    if (currentDeleteId) {
+      this.isSaving.set(true);
+      this.firebaseService.deleteDocument$('orcamentos', currentDeleteId).pipe(
+        finalize(() => this.isSaving.set(false))
       ).subscribe({
         next: () => {
           this.closeDeleteModal();
           this.showSuccess('Orçamento excluído com sucesso!');
-          this.cdr.detectChanges();
         },
         error: (error) => {
           console.error('Erro ao excluir:', error);
           alert('Erro ao excluir orçamento');
-          this.cdr.detectChanges();
         }
       });
     }
   }
 
   showSuccess(message: string): void {
-    this.successMessage = message;
-    this.isSuccessModalOpen = true;
+    this.successMessage.set(message);
+    this.isSuccessModalOpen.set(true);
   }
 
   closeSuccessModal(): void {
-    this.isSuccessModalOpen = false;
-    this.successMessage = '';
+    this.isSuccessModalOpen.set(false);
+    this.successMessage.set('');
   }
 
   getStatusClass(status: string): string {

@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, DestroyRef, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, inject, DestroyRef, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -21,21 +21,19 @@ export class ProdutosComponent implements OnInit {
   private firebaseService = inject(FirebaseService);
   private destroyRef = inject(DestroyRef);
 
-  produtos: (Produto & { id: string })[] = [];
-  categorias: (Categoria & { id: string })[] = [];
-
-  isModalOpen = false;
-  isDeleteModalOpen = false;
-  isSuccessModalOpen = false;
-  successMessage = '';
-
-  isLoading = true;
-  isSaving = false;
-
-  editingId: string | null = null;
-  deleteId: string | null = null;
-  deleteName = '';
-  variacaoAtiva = false;
+  // Signals para estado reativo
+  readonly produtos = signal<(Produto & { id: string })[]>([]);
+  readonly categorias = signal<(Categoria & { id: string })[]>([]);
+  readonly isModalOpen = signal(false);
+  readonly isDeleteModalOpen = signal(false);
+  readonly isSuccessModalOpen = signal(false);
+  readonly successMessage = signal('');
+  readonly isLoading = signal(true);
+  readonly isSaving = signal(false);
+  readonly editingId = signal<string | null>(null);
+  readonly deleteId = signal<string | null>(null);
+  readonly deleteName = signal('');
+  readonly variacaoAtiva = signal(false);
 
   formData: Produto = {
     nome: '',
@@ -45,9 +43,6 @@ export class ProdutosComponent implements OnInit {
     ativo: true
   };
 
-  constructor(
-    private readonly cdr: ChangeDetectorRef
-  ){}
   ngOnInit(): void {
     this.loadData();
   }
@@ -60,71 +55,70 @@ export class ProdutosComponent implements OnInit {
       takeUntilDestroyed(this.destroyRef)
     ).subscribe({
       next: (data) => {
-        this.produtos = data.produtos;
-        this.categorias = data.categorias;
-        this.isLoading = false;
-        this.cdr.detectChanges();
+        this.produtos.set(data.produtos);
+        this.categorias.set(data.categorias);
+        this.isLoading.set(false);
       },
       error: (error) => {
         console.error('Erro ao carregar dados:', error);
-        this.isLoading = false;
-        this.cdr.detectChanges();
+        this.isLoading.set(false);
       }
     });
   }
 
   getCategoriaNome(categoriaId: string): string {
-    const categoria = this.categorias.find(c => c.id === categoriaId);
+    const categoria = this.categorias().find(c => c.id === categoriaId);
     return categoria ? categoria.nome : '-';
   }
 
   openModal(produto?: Produto & { id: string }): void {
-    this.variacaoAtiva = false;
+    this.variacaoAtiva.set(false);
     if (produto) {
-      this.editingId = produto.id;
+      this.editingId.set(produto.id);
       this.formData = { ...produto };
       if (produto.tipoVariacao) {
-        this.variacaoAtiva = true;
+        this.variacaoAtiva.set(true);
       }
     } else {
-      this.editingId = null;
+      this.editingId.set(null);
       this.formData = { nome: '', categoriaId: '', preco: 0, estoque: 0, ativo: true };
     }
-    this.isModalOpen = true;
+    this.isModalOpen.set(true);
   }
 
   closeModal(): void {
-    this.isModalOpen = false;
-    this.editingId = null;
-    this.variacaoAtiva = false;
+    this.isModalOpen.set(false);
+    this.editingId.set(null);
+    this.variacaoAtiva.set(false);
     this.formData = { nome: '', categoriaId: '', preco: 0, estoque: 0, ativo: true };
   }
 
   toggleVariacao(): void {
-    this.variacaoAtiva = !this.variacaoAtiva;
+    this.variacaoAtiva.update(v => !v);
   }
 
   saveProduto(): void {
-    this.isSaving = true;
-    const isEditing = !!this.editingId;
+    this.isSaving.set(true);
+    const isEditing = !!this.editingId();
     const message = isEditing
       ? `Produto "${this.formData.nome}" atualizado com sucesso!`
       : `"${this.formData.nome}" cadastrado com sucesso!`;
 
     const handleSuccess = () => {
-      this.isSaving = false;
+      this.isSaving.set(false);
       this.showSuccess(message);
       this.closeModal();
     };
 
     const handleError = (error: Error) => {
-      this.isSaving = false;
+      this.isSaving.set(false);
       console.error('Erro ao salvar:', error);
       alert('Erro ao salvar produto');
     };
 
-    if (isEditing && this.editingId) {
-      this.firebaseService.updateDocument$('produtos', this.editingId, this.formData).subscribe({
+    const currentEditingId = this.editingId();
+    if (isEditing && currentEditingId) {
+      this.firebaseService.updateDocument$('produtos', currentEditingId, this.formData).subscribe({
         next: handleSuccess,
         error: handleError
       });
@@ -137,22 +131,23 @@ export class ProdutosComponent implements OnInit {
   }
 
   openDeleteModal(produto: Produto & { id: string }): void {
-    this.deleteId = produto.id;
-    this.deleteName = produto.nome;
-    this.isDeleteModalOpen = true;
+    this.deleteId.set(produto.id);
+    this.deleteName.set(produto.nome);
+    this.isDeleteModalOpen.set(true);
   }
 
   closeDeleteModal(): void {
-    this.isDeleteModalOpen = false;
-    this.deleteId = null;
-    this.deleteName = '';
+    this.isDeleteModalOpen.set(false);
+    this.deleteId.set(null);
+    this.deleteName.set('');
   }
 
   confirmDelete(): void {
-    if (this.deleteId) {
-      this.isSaving = true;
-      this.firebaseService.deleteDocument$('produtos', this.deleteId).pipe(
-        finalize(() => this.isSaving = false)
+    const currentDeleteId = this.deleteId();
+    if (currentDeleteId) {
+      this.isSaving.set(true);
+      this.firebaseService.deleteDocument$('produtos', currentDeleteId).pipe(
+        finalize(() => this.isSaving.set(false))
       ).subscribe({
         next: () => {
           this.closeDeleteModal();
@@ -167,12 +162,12 @@ export class ProdutosComponent implements OnInit {
   }
 
   showSuccess(message: string): void {
-    this.successMessage = message;
-    this.isSuccessModalOpen = true;
+    this.successMessage.set(message);
+    this.isSuccessModalOpen.set(true);
   }
 
   closeSuccessModal(): void {
-    this.isSuccessModalOpen = false;
-    this.successMessage = '';
+    this.isSuccessModalOpen.set(false);
+    this.successMessage.set('');
   }
 }

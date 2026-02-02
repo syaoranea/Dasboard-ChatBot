@@ -1,7 +1,6 @@
-import { Component, EventEmitter, Output, inject, OnInit, DestroyRef, ChangeDetectorRef } from '@angular/core';
+import { Component, EventEmitter, Output, inject, OnInit, DestroyRef, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subject, debounceTime, distinctUntilChanged, switchMap, of } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ProdutoSkuService } from '../../../../shared/services/produto-sku.service';
 import { Produto } from '../../../../core/models/interfaces';
@@ -24,15 +23,15 @@ import { Produto } from '../../../../core/models/interfaces';
       <div class="relative">
         <input
           type="text"
-          [(ngModel)]="searchTerm"
-          (input)="onSearchChange($event)"
+          [ngModel]="searchTerm()"
+          (ngModelChange)="onSearchChange($event)"
           placeholder="Digite o nome do produto..."
           class="w-full border border-[var(--gray-300)] px-4 py-2.5 pl-10 rounded-lg text-[var(--gray-900)] placeholder-[var(--gray-400)] focus:ring-2 focus:ring-[var(--primary-500)] focus:border-transparent"
-          [class.border-green-500]="selectedProduto"
+          [class.border-green-500]="selectedProduto()"
         />
         <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--gray-400)]"></i>
 
-        @if (selectedProduto) {
+        @if (selectedProduto()) {
           <button
             type="button"
             (click)="clearSelection()"
@@ -44,9 +43,9 @@ import { Produto } from '../../../../core/models/interfaces';
       </div>
 
       <!-- Dropdown de resultados -->
-      @if (showDropdown && filteredProdutos.length > 0) {
+      @if (showDropdown() && filteredProdutos().length > 0) {
         <div class="absolute z-10 w-full mt-1 bg-white border border-[var(--gray-200)] rounded-lg shadow-lg max-h-60 overflow-y-auto">
-          @for (produto of filteredProdutos; track produto.id) {
+          @for (produto of filteredProdutos(); track produto.id) {
             <button
               type="button"
               (click)="selectProduto(produto)"
@@ -75,7 +74,7 @@ import { Produto } from '../../../../core/models/interfaces';
       }
 
       <!-- Mensagem quando não há resultados -->
-      @if (showDropdown && searchTerm && filteredProdutos.length === 0 && !isLoading) {
+      @if (showDropdown() && searchTerm() && filteredProdutos().length === 0 && !isLoading()) {
         <div class="absolute z-10 w-full mt-1 bg-white border border-[var(--gray-200)] rounded-lg shadow-lg p-4 text-center text-[var(--gray-500)]">
           <i class="fas fa-search text-2xl mb-2"></i>
           <p>Nenhum produto encontrado</p>
@@ -83,7 +82,7 @@ import { Produto } from '../../../../core/models/interfaces';
       }
 
       <!-- Loading state -->
-      @if (isLoading) {
+      @if (isLoading()) {
         <div class="absolute z-10 w-full mt-1 bg-white border border-[var(--gray-200)] rounded-lg shadow-lg p-4 text-center text-[var(--gray-500)]">
           <i class="fas fa-spinner fa-spin mr-2"></i>
           Buscando produtos...
@@ -91,16 +90,16 @@ import { Produto } from '../../../../core/models/interfaces';
       }
 
       <!-- Produto selecionado -->
-      @if (selectedProduto) {
+      @if (selectedProduto()) {
         <div class="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
           <div class="flex items-center justify-between">
             <div>
               <p class="font-medium text-green-800">
                 <i class="fas fa-check-circle mr-2"></i>
-                {{ selectedProduto.nome }}
+                {{ selectedProduto()!.nome }}
               </p>
-              @if (selectedProduto.descricao) {
-                <p class="text-sm text-green-600 mt-1">{{ selectedProduto.descricao }}</p>
+              @if (selectedProduto()!.descricao) {
+                <p class="text-sm text-green-600 mt-1">{{ selectedProduto()!.descricao }}</p>
               }
             </div>
           </div>
@@ -116,81 +115,69 @@ export class ProductSearchComponent implements OnInit {
 
   @Output() produtoSelected = new EventEmitter<Produto & { id: string }>();
 
-  searchTerm = '';
-  showDropdown = false;
-  isLoading = false;
+  // Signals para estado reativo
+  readonly searchTerm = signal('');
+  readonly showDropdown = signal(false);
+  readonly isLoading = signal(false);
+  readonly allProdutos = signal<(Produto & { id: string })[]>([]);
+  readonly selectedProduto = signal<(Produto & { id: string }) | null>(null);
+  
+  // Signal interno para termo de busca com debounce
+  private readonly debouncedSearchTerm = signal('');
+  private debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-  allProdutos: (Produto & { id: string })[] = [];
-  filteredProdutos: (Produto & { id: string })[] = [];
-  selectedProduto: (Produto & { id: string }) | null = null;
+  // Computed signal para filtrar produtos
+  readonly filteredProdutos = computed(() => {
+    const term = this.debouncedSearchTerm().toLowerCase().trim();
+    if (!term) {
+      return [];
+    }
+    return this.allProdutos().filter(produto =>
+      produto.nome.toLowerCase().includes(term) ||
+      produto.descricao?.toLowerCase().includes(term)
+    );
+  });
 
-  private searchSubject = new Subject<string>();
-
-    constructor(
-    private readonly cdr: ChangeDetectorRef
-  ){}
   ngOnInit(): void {
     // Carregar todos os produtos
     this.produtoSkuService.getProdutos$()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(produtos => {
-        this.allProdutos = produtos.filter(p => p.ativo);
-        this.cdr.detectChanges();
-      });
-
-    // Configurar debounce para busca
-    this.searchSubject
-      .pipe(
-        debounceTime(300),
-        distinctUntilChanged(),
-        takeUntilDestroyed(this.destroyRef)
-      )
-      .subscribe(term => {
-        this.filterProdutos(term);
-        this.cdr.detectChanges();
+        this.allProdutos.set(produtos.filter(p => p.ativo));
       });
   }
 
-  onSearchChange(event: Event): void {
-    const term = (event.target as HTMLInputElement).value;
-    this.searchSubject.next(term);
-    this.showDropdown = true;
+  onSearchChange(term: string): void {
+    this.searchTerm.set(term);
+    this.showDropdown.set(true);
 
     if (!term) {
       this.clearSelection();
-    }
-    this.cdr.detectChanges();
-  }
-
-  private filterProdutos(term: string): void {
-    if (!term.trim()) {
-      this.filteredProdutos = [];
-      this.showDropdown = false;
       return;
     }
 
-    const searchLower = term.toLowerCase();
-    this.filteredProdutos = this.allProdutos.filter(produto =>
-      produto.nome.toLowerCase().includes(searchLower) ||
-      produto.descricao?.toLowerCase().includes(searchLower)
+    // Implementar debounce manualmente
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer);
+    }
 
-    );
-    this.cdr.detectChanges();
+    this.debounceTimer = setTimeout(() => {
+      this.debouncedSearchTerm.set(term);
+    }, 300);
   }
 
   selectProduto(produto: Produto & { id: string }): void {
-    this.selectedProduto = produto;
-    this.searchTerm = produto.nome;
-    this.showDropdown = false;
+    this.selectedProduto.set(produto);
+    this.searchTerm.set(produto.nome);
+    this.showDropdown.set(false);
     this.produtoSelected.emit(produto);
-    this.cdr.detectChanges();
   }
 
   clearSelection(): void {
-    this.selectedProduto = null;
-    this.searchTerm = '';
-    this.filteredProdutos = [];
-    this.showDropdown = false;
+    this.selectedProduto.set(null);
+    this.searchTerm.set('');
+    this.debouncedSearchTerm.set('');
+    this.showDropdown.set(false);
     this.produtoSelected.emit(null as any);
   }
 }

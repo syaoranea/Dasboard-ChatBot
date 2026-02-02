@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, DestroyRef, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, inject, DestroyRef, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -13,7 +13,7 @@ import { Produto, SKU, Categoria } from '../../core/models/interfaces';
 
 /**
  * Componente de listagem de produtos com arquitetura Produto Pai + SKUs
- * Versão 2.0 - Totalmente redesenhada
+ * Versão 2.0 - Totalmente redesenhada com Signals
  */
 @Component({
   selector: 'app-produtos-v2',
@@ -34,32 +34,65 @@ export class ProdutosV2Component implements OnInit {
   private produtoSkuService = inject(ProdutoSkuService);
   private destroyRef = inject(DestroyRef);
 
-  produtos: (Produto & { id: string })[] = [];
-  skus: (SKU & { id: string })[] = [];
-  categorias: (Categoria & { id: string })[] = [];
+  // Signals para estado base
+  private readonly _produtos = signal<(Produto & { id: string })[]>([]);
+  private readonly _skus = signal<(SKU & { id: string })[]>([]);
+  readonly categorias = signal<(Categoria & { id: string })[]>([]);
 
-  // Dados agregados para exibição
-  produtosComDados: any[] = [];
-
-  isModalOpen = false;
-  isDeleteModalOpen = false;
-  isSuccessModalOpen = false;
-  successMessage = '';
-
-  isLoading = true;
-  isSaving = false;
-
-  editingProdutoId: string | null = null;
-  deleteId: string | null = null;
-  deleteName = '';
+  // Signals para UI
+  readonly isModalOpen = signal(false);
+  readonly isDeleteModalOpen = signal(false);
+  readonly isSuccessModalOpen = signal(false);
+  readonly successMessage = signal('');
+  readonly isLoading = signal(true);
+  readonly isSaving = signal(false);
+  readonly editingProdutoId = signal<string | null>(null);
+  readonly deleteId = signal<string | null>(null);
+  readonly deleteName = signal('');
 
   // Filtros e busca
-  searchTerm = '';
-  filtroCategoria = '';
+  readonly searchTerm = signal('');
+  readonly filtroCategoria = signal('');
 
-    constructor(
-    private readonly cdr: ChangeDetectorRef
-  ){}
+  // Computed signal para produtos com dados agregados e filtros aplicados
+  readonly produtosComDados = computed(() => {
+    const produtos = this._produtos();
+    const skus = this._skus();
+    const search = this.searchTerm().toLowerCase();
+    const categoriaFiltro = this.filtroCategoria();
+
+    let resultados = produtos.map(produto => {
+      const skusDoProduto = skus.filter(sku => sku.produtoId === produto.id);
+      const estoqueTotal = skusDoProduto.reduce((sum, sku) => sum + (sku.estoque || 0), 0);
+      const precos = skusDoProduto.map(sku => sku.preco);
+      const precoMin = precos.length > 0 ? Math.min(...precos) : 0;
+      const precoMax = precos.length > 0 ? Math.max(...precos) : 0;
+
+      return {
+        ...produto,
+        quantidadeSKUs: skusDoProduto.length,
+        estoqueTotal,
+        precoMin,
+        precoMax,
+        skus: skusDoProduto
+      };
+    });
+
+    // Aplicar filtros
+    if (search) {
+      resultados = resultados.filter(p =>
+        p.nome.toLowerCase().includes(search) ||
+        p.descricao?.toLowerCase().includes(search) ||
+        p.marca?.toLowerCase().includes(search)
+      );
+    }
+
+    if (categoriaFiltro) {
+      resultados = resultados.filter(p => p.categoriaId === categoriaFiltro);
+    }
+
+    return resultados;
+  });
 
   ngOnInit(): void {
     this.loadData();
@@ -77,78 +110,23 @@ export class ProdutosV2Component implements OnInit {
       takeUntilDestroyed(this.destroyRef)
     ).subscribe({
       next: (data) => {
-        this.produtos = data.produtos;
-        this.skus = data.skus;
-        this.categorias = data.categorias;
-        this.processarDados();
-        this.isLoading = false;
-        this.cdr.detectChanges();
+        this._produtos.set(data.produtos);
+        this._skus.set(data.skus);
+        this.categorias.set(data.categorias);
+        this.isLoading.set(false);
       },
       error: (error) => {
         console.error('Erro ao carregar dados:', error);
-        this.isLoading = false;
-        this.cdr.detectChanges();
+        this.isLoading.set(false);
       }
     });
-  }
-
-  /**
-   * Processa dados para exibição na listagem
-   * Agrega informações de SKUs aos produtos
-   */
-  private processarDados(): void {
-    this.produtosComDados = this.produtos.map(produto => {
-      const skusDoProduto = this.skus.filter(sku => sku.produtoId === produto.id);
-
-      // Calcula totais e faixas
-      const estoqueTotal = skusDoProduto.reduce((sum, sku) => sum + (sku.estoque || 0), 0);
-      const precos = skusDoProduto.map(sku => sku.preco);
-      const precoMin = precos.length > 0 ? Math.min(...precos) : 0;
-      const precoMax = precos.length > 0 ? Math.max(...precos) : 0;
-
-      return {
-        ...produto,
-        quantidadeSKUs: skusDoProduto.length,
-        estoqueTotal,
-        precoMin,
-        precoMax,
-        skus: skusDoProduto
-      };
-    });
-
-    // Aplica filtros
-    this.aplicarFiltros();
-  }
-
-  /**
-   * Aplica filtros de busca e categoria
-   */
-  private aplicarFiltros(): void {
-    let resultados = [...this.produtosComDados];
-
-    // Filtro de busca
-    if (this.searchTerm) {
-      const termo = this.searchTerm.toLowerCase();
-      resultados = resultados.filter(p =>
-        p.nome.toLowerCase().includes(termo) ||
-        p.descricao?.toLowerCase().includes(termo) ||
-        p.marca?.toLowerCase().includes(termo)
-      );
-    }
-
-    // Filtro de categoria
-    if (this.filtroCategoria) {
-      resultados = resultados.filter(p => p.categoriaId === this.filtroCategoria);
-    }
-
-    this.produtosComDados = resultados;
   }
 
   /**
    * Obtém nome da categoria
    */
   getCategoriaNome(categoriaId: string): string {
-    const categoria = this.categorias.find(c => c.id === categoriaId);
+    const categoria = this.categorias().find(c => c.id === categoriaId);
     return categoria ? categoria.nome : '-';
   }
 
@@ -166,16 +144,16 @@ export class ProdutosV2Component implements OnInit {
    * Abre modal para novo produto
    */
   openModal(produtoId?: string): void {
-    this.editingProdutoId = produtoId || null;
-    this.isModalOpen = true;
+    this.editingProdutoId.set(produtoId || null);
+    this.isModalOpen.set(true);
   }
 
   /**
    * Fecha o modal
    */
   closeModal(): void {
-    this.isModalOpen = false;
-    this.editingProdutoId = null;
+    this.isModalOpen.set(false);
+    this.editingProdutoId.set(null);
   }
 
   /**
@@ -189,37 +167,36 @@ export class ProdutosV2Component implements OnInit {
    * Abre modal de confirmação de exclusão
    */
   openDeleteModal(produto: Produto & { id: string }): void {
-    this.deleteId = produto.id;
-    this.deleteName = produto.nome;
-    this.isDeleteModalOpen = true;
-
+    this.deleteId.set(produto.id);
+    this.deleteName.set(produto.nome);
+    this.isDeleteModalOpen.set(true);
   }
 
   /**
    * Fecha modal de exclusão
    */
   closeDeleteModal(): void {
-    this.isDeleteModalOpen = false;
-    this.deleteId = null;
-    this.deleteName = '';
+    this.isDeleteModalOpen.set(false);
+    this.deleteId.set(null);
+    this.deleteName.set('');
   }
 
   /**
    * Confirma e executa a exclusão
    */
   confirmDelete(): void {
-    if (!this.deleteId) return;
+    const currentDeleteId = this.deleteId();
+    if (!currentDeleteId) return;
 
-    this.isSaving = true;
-    this.produtoSkuService.deletarProduto$(this.deleteId).subscribe({
+    this.isSaving.set(true);
+    this.produtoSkuService.deletarProduto$(currentDeleteId).subscribe({
       next: () => {
-        this.isSaving = false;
+        this.isSaving.set(false);
         this.closeDeleteModal();
-        this.cdr.detectChanges();
         this.showSuccess('Produto e seus SKUs excluídos com sucesso!');
       },
       error: (error) => {
-        this.isSaving = false;
+        this.isSaving.set(false);
         console.error('Erro ao excluir:', error);
         alert('Erro ao excluir produto');
       }
@@ -230,40 +207,39 @@ export class ProdutosV2Component implements OnInit {
    * Mostra modal de sucesso
    */
   showSuccess(message: string): void {
-    this.successMessage = message;
-    this.isSuccessModalOpen = true;
-    this.cdr.detectChanges();
-
+    this.successMessage.set(message);
+    this.isSuccessModalOpen.set(true);
   }
 
   /**
    * Fecha modal de sucesso
    */
   closeSuccessModal(): void {
-    this.isSuccessModalOpen = false;
-    this.successMessage = '';
+    this.isSuccessModalOpen.set(false);
+    this.successMessage.set('');
   }
 
   /**
    * Handler de mudança na busca
    */
-  onSearchChange(): void {
-    this.processarDados();
+  onSearchChange(event: Event): void {
+    const target = event.target as HTMLInputElement;
+    this.searchTerm.set(target.value);
   }
 
   /**
    * Handler de mudança no filtro de categoria
    */
-  onCategoriaChange(): void {
-    this.processarDados();
+  onCategoriaChange(event: Event): void {
+    const target = event.target as HTMLSelectElement;
+    this.filtroCategoria.set(target.value);
   }
 
   /**
    * Limpa todos os filtros
    */
   limparFiltros(): void {
-    this.searchTerm = '';
-    this.filtroCategoria = '';
-    this.processarDados();
+    this.searchTerm.set('');
+    this.filtroCategoria.set('');
   }
 }

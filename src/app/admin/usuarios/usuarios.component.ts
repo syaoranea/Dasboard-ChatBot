@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, DestroyRef, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, inject, DestroyRef, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -21,30 +21,23 @@ export class UsuariosComponent implements OnInit {
   private firebaseService = inject(FirebaseService);
   private destroyRef = inject(DestroyRef);
 
-  usuarios: (Usuario & { id: string })[] = [];
-
-  isModalOpen = false;
-  isDeleteModalOpen = false;
-  isSuccessModalOpen = false;
-  successMessage = '';
-
-  isLoading = true;
-  isSaving = false;
-
-  editingId: string | null = null;
-  deleteId: string | null = null;
-  deleteName = '';
+  // Signals para estado reativo
+  readonly usuarios = signal<(Usuario & { id: string })[]>([]);
+  readonly isModalOpen = signal(false);
+  readonly isDeleteModalOpen = signal(false);
+  readonly isSuccessModalOpen = signal(false);
+  readonly successMessage = signal('');
+  readonly isLoading = signal(true);
+  readonly isSaving = signal(false);
+  readonly editingId = signal<string | null>(null);
+  readonly deleteId = signal<string | null>(null);
+  readonly deleteName = signal('');
 
   formData: Usuario = {
     nome: '',
     email: '',
     nivel: 'operador'
   };
-
-
-  constructor(
-    private readonly cdr: ChangeDetectorRef
-  ){}
 
   ngOnInit(): void {
     this.loadUsuarios();
@@ -55,56 +48,55 @@ export class UsuariosComponent implements OnInit {
       takeUntilDestroyed(this.destroyRef)
     ).subscribe({
       next: (data) => {
-        this.usuarios = data;
-        this.isLoading = false;
-        this.cdr.detectChanges();
+        this.usuarios.set(data);
+        this.isLoading.set(false);
       },
       error: (error) => {
         console.error('Erro ao carregar usuários:', error);
-        this.isLoading = false;
-        this.cdr.detectChanges();
+        this.isLoading.set(false);
       }
     });
   }
 
   openModal(usuario?: Usuario & { id: string }): void {
     if (usuario) {
-      this.editingId = usuario.id;
+      this.editingId.set(usuario.id);
       this.formData = { ...usuario };
     } else {
-      this.editingId = null;
+      this.editingId.set(null);
       this.formData = { nome: '', email: '', nivel: 'operador' };
     }
-    this.isModalOpen = true;
+    this.isModalOpen.set(true);
   }
 
   closeModal(): void {
-    this.isModalOpen = false;
-    this.editingId = null;
+    this.isModalOpen.set(false);
+    this.editingId.set(null);
     this.formData = { nome: '', email: '', nivel: 'operador' };
   }
 
   saveUsuario(): void {
-    this.isSaving = true;
-    const isEditing = !!this.editingId;
+    this.isSaving.set(true);
+    const isEditing = !!this.editingId();
     const message = isEditing
       ? `Usuário "${this.formData.nome}" atualizado com sucesso!`
       : `"${this.formData.nome}" cadastrado com sucesso!`;
 
     const handleSuccess = () => {
-      this.isSaving = false;
+      this.isSaving.set(false);
       this.showSuccess(message);
       this.closeModal();
     };
 
     const handleError = (error: Error) => {
-      this.isSaving = false;
+      this.isSaving.set(false);
       console.error('Erro ao salvar:', error);
       alert('Erro ao salvar usuário');
     };
 
-    if (isEditing && this.editingId) {
-      this.firebaseService.updateDocument$('usuarios', this.editingId, this.formData).subscribe({
+    const currentEditingId = this.editingId();
+    if (isEditing && currentEditingId) {
+      this.firebaseService.updateDocument$('usuarios', currentEditingId, this.formData).subscribe({
         next: handleSuccess,
         error: handleError
       });
@@ -117,31 +109,30 @@ export class UsuariosComponent implements OnInit {
   }
 
   openDeleteModal(usuario: Usuario & { id: string }): void {
-    this.deleteId = usuario.id;
-    this.deleteName = usuario.nome;
-    this.isDeleteModalOpen = true;
+    this.deleteId.set(usuario.id);
+    this.deleteName.set(usuario.nome);
+    this.isDeleteModalOpen.set(true);
   }
 
   closeDeleteModal(): void {
-    this.isDeleteModalOpen = false;
-    this.deleteId = null;
-    this.deleteName = '';
+    this.isDeleteModalOpen.set(false);
+    this.deleteId.set(null);
+    this.deleteName.set('');
   }
 
   confirmDelete(): void {
-    if (this.deleteId) {
-      this.isSaving = true;
-      this.firebaseService.deleteDocument$('usuarios', this.deleteId).pipe(
-        finalize(() => this.isSaving = false)
+    const currentDeleteId = this.deleteId();
+    if (currentDeleteId) {
+      this.isSaving.set(true);
+      this.firebaseService.deleteDocument$('usuarios', currentDeleteId).pipe(
+        finalize(() => this.isSaving.set(false))
       ).subscribe({
         next: () => {
           this.closeDeleteModal();
-          this.cdr.detectChanges();
           this.showSuccess('Registro excluído com sucesso!');
         },
         error: (error) => {
           console.error('Erro ao excluir:', error);
-          this.cdr.detectChanges();
           alert('Erro ao excluir usuário');
         }
       });
@@ -149,12 +140,12 @@ export class UsuariosComponent implements OnInit {
   }
 
   showSuccess(message: string): void {
-    this.successMessage = message;
-    this.isSuccessModalOpen = true;
+    this.successMessage.set(message);
+    this.isSuccessModalOpen.set(true);
   }
 
   closeSuccessModal(): void {
-    this.isSuccessModalOpen = false;
-    this.successMessage = '';
+    this.isSuccessModalOpen.set(false);
+    this.successMessage.set('');
   }
 }

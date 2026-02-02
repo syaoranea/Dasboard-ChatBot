@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, DestroyRef, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, inject, DestroyRef, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -21,29 +21,22 @@ export class CategoriasComponent implements OnInit {
   private firebaseService = inject(FirebaseService);
   private destroyRef = inject(DestroyRef);
 
-  categorias: (Categoria & { id: string })[] = [];
-
-  isModalOpen = false;
-  isDeleteModalOpen = false;
-  isSuccessModalOpen = false;
-  successMessage = '';
-
-  isLoading = true;
-  isSaving = false;
-
-  editingId: string | null = null;
-  deleteId: string | null = null;
-  deleteName = '';
+  // Signals para estado reativo
+  readonly categorias = signal<(Categoria & { id: string })[]>([]);
+  readonly isModalOpen = signal(false);
+  readonly isDeleteModalOpen = signal(false);
+  readonly isSuccessModalOpen = signal(false);
+  readonly successMessage = signal('');
+  readonly isLoading = signal(true);
+  readonly isSaving = signal(false);
+  readonly editingId = signal<string | null>(null);
+  readonly deleteId = signal<string | null>(null);
+  readonly deleteName = signal('');
 
   formData: Categoria = {
     nome: '',
     descricao: ''
   };
-
-
-  constructor(
-    private readonly cdr: ChangeDetectorRef
-  ){}
 
   ngOnInit(): void {
     this.loadCategorias();
@@ -54,56 +47,55 @@ export class CategoriasComponent implements OnInit {
       takeUntilDestroyed(this.destroyRef)
     ).subscribe({
       next: (data) => {
-        this.categorias = data;
-        this.isLoading = false;
-        this.cdr.detectChanges();
+        this.categorias.set(data);
+        this.isLoading.set(false);
       },
       error: (error) => {
         console.error('Erro ao carregar categorias:', error);
-        this.isLoading = false;
-        this.cdr.detectChanges();
+        this.isLoading.set(false);
       }
     });
   }
 
   openModal(categoria?: Categoria & { id: string }): void {
     if (categoria) {
-      this.editingId = categoria.id;
+      this.editingId.set(categoria.id);
       this.formData = { ...categoria };
     } else {
-      this.editingId = null;
+      this.editingId.set(null);
       this.formData = { nome: '', descricao: '' };
     }
-    this.isModalOpen = true;
+    this.isModalOpen.set(true);
   }
 
   closeModal(): void {
-    this.isModalOpen = false;
-    this.editingId = null;
+    this.isModalOpen.set(false);
+    this.editingId.set(null);
     this.formData = { nome: '', descricao: '' };
   }
 
   saveCategoria(): void {
-    this.isSaving = true;
-    const isEditing = !!this.editingId;
+    this.isSaving.set(true);
+    const isEditing = !!this.editingId();
     const message = isEditing
       ? `Categoria "${this.formData.nome}" atualizada com sucesso!`
       : `"${this.formData.nome}" cadastrada com sucesso!`;
 
     const handleSuccess = () => {
-      this.isSaving = false;
+      this.isSaving.set(false);
       this.showSuccess(message);
       this.closeModal();
     };
 
     const handleError = (error: Error) => {
-      this.isSaving = false;
+      this.isSaving.set(false);
       console.error('Erro ao salvar:', error);
       alert('Erro ao salvar categoria');
     };
 
-    if (isEditing && this.editingId) {
-      this.firebaseService.updateDocument$('categorias', this.editingId, this.formData).subscribe({
+    const currentEditingId = this.editingId();
+    if (isEditing && currentEditingId) {
+      this.firebaseService.updateDocument$('categorias', currentEditingId, this.formData).subscribe({
         next: handleSuccess,
         error: handleError
       });
@@ -116,31 +108,30 @@ export class CategoriasComponent implements OnInit {
   }
 
   openDeleteModal(categoria: Categoria & { id: string }): void {
-    this.deleteId = categoria.id;
-    this.deleteName = categoria.nome;
-    this.isDeleteModalOpen = true;
+    this.deleteId.set(categoria.id);
+    this.deleteName.set(categoria.nome);
+    this.isDeleteModalOpen.set(true);
   }
 
   closeDeleteModal(): void {
-    this.isDeleteModalOpen = false;
-    this.deleteId = null;
-    this.deleteName = '';
+    this.isDeleteModalOpen.set(false);
+    this.deleteId.set(null);
+    this.deleteName.set('');
   }
 
   confirmDelete(): void {
-    if (this.deleteId) {
-      this.isSaving = true;
-      this.firebaseService.deleteDocument$('categorias', this.deleteId).pipe(
-        finalize(() => this.isSaving = false)
+    const currentDeleteId = this.deleteId();
+    if (currentDeleteId) {
+      this.isSaving.set(true);
+      this.firebaseService.deleteDocument$('categorias', currentDeleteId).pipe(
+        finalize(() => this.isSaving.set(false))
       ).subscribe({
         next: () => {
           this.closeDeleteModal();
-          this.cdr.detectChanges();
           this.showSuccess('Registro excluído com sucesso!');
         },
         error: (error) => {
           console.error('Erro ao excluir:', error);
-          this.cdr.detectChanges();
           alert('Erro ao excluir categoria');
         }
       });
@@ -148,12 +139,12 @@ export class CategoriasComponent implements OnInit {
   }
 
   showSuccess(message: string): void {
-    this.successMessage = message;
-    this.isSuccessModalOpen = true;
+    this.successMessage.set(message);
+    this.isSuccessModalOpen.set(true);
   }
 
   closeSuccessModal(): void {
-    this.isSuccessModalOpen = false;
-    this.successMessage = '';
+    this.isSuccessModalOpen.set(false);
+    this.successMessage.set('');
   }
 }
